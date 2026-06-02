@@ -7,6 +7,10 @@ from typing import Any
 import yaml
 
 
+class ConfigError(ValueError):
+    pass
+
+
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     merged = deepcopy(base)
     for key, value in override.items():
@@ -30,7 +34,7 @@ class ConfigManager:
         return _deep_merge(defaults, self._read_yaml(self.config_path))
 
     def save(self, config: dict[str, Any]) -> None:
-        self.project_dir.mkdir(parents=True, exist_ok=True)
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
         self.config_path.write_text(
             yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
             encoding="utf-8",
@@ -43,4 +47,6 @@ class ConfigManager:
     @staticmethod
     def _read_yaml(path: Path) -> dict[str, Any]:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            raise ConfigError(f"Configuration file must contain a mapping: {path}")
+        return data
