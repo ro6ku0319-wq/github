@@ -75,6 +75,56 @@ def test_order_file_missing_reference_raises_clear_error(tmp_path: Path) -> None
         collect_videos(input_dir, order_file)
 
 
+def test_order_file_rejects_case_insensitive_duplicate_entries(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    create_video(input_dir / "Clip.MP4")
+    order_file = tmp_path / "order.txt"
+    order_file.write_text("Clip.MP4\nclip.mp4\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"duplicate.*clip\.mp4"):
+        collect_videos(input_dir, order_file)
+
+
+def test_existing_blank_order_file_raises_clear_error(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    create_video(input_dir / "part1.mp4")
+    order_file = tmp_path / "order.txt"
+    order_file.write_text(" \n\t\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"blank"):
+        collect_videos(input_dir, order_file)
+
+
+def test_order_file_lookup_is_case_insensitive_and_preserves_actual_filename(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    create_video(input_dir / "Clip.MP4")
+    order_file = tmp_path / "order.txt"
+    order_file.write_text("clip.mp4\n", encoding="utf-8")
+
+    result = collect_videos(input_dir, order_file)
+
+    assert filenames(result.files) == ("Clip.MP4",)
+
+
+def test_order_file_accepts_utf8_bom(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    create_video(input_dir / "part1.mp4")
+    order_file = tmp_path / "order.txt"
+    order_file.write_text("part1.mp4\n", encoding="utf-8-sig")
+
+    result = collect_videos(input_dir, order_file)
+
+    assert filenames(result.files) == ("part1.mp4",)
+
+
 def test_filters_extensions_case_insensitively_and_ignores_nested_files(
     tmp_path: Path,
 ) -> None:
@@ -106,6 +156,49 @@ def test_warns_when_natural_and_modified_time_orders_conflict(
     assert filenames(result.natural_order) == ("part1.mp4", "part2.mp4")
     assert filenames(result.modified_time_order) == ("part2.mp4", "part1.mp4")
     assert "filename_and_mtime_order_conflict" in result.warnings
+
+
+def test_nonnumeric_filenames_use_modified_time_order_with_warning(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    create_video(input_dir / "alpha.mp4", modified_time=200.0)
+    create_video(input_dir / "beta.mp4", modified_time=100.0)
+
+    result = collect_videos(input_dir, tmp_path / "missing-order.txt")
+
+    assert filenames(result.natural_order) == ("alpha.mp4", "beta.mp4")
+    assert filenames(result.modified_time_order) == ("beta.mp4", "alpha.mp4")
+    assert filenames(result.files) == ("beta.mp4", "alpha.mp4")
+    assert "filename_order_unreliable_using_mtime" in result.warnings
+    assert "filename_and_mtime_order_conflict" in result.warnings
+
+
+def test_discovered_video_paths_are_resolved(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    video_path = input_dir / "part1.mp4"
+    create_video(video_path)
+
+    result = collect_videos(input_dir, tmp_path / "missing-order.txt")
+
+    assert result.files[0].path == video_path.resolve()
+
+
+def test_rejects_case_insensitive_ambiguous_discovered_filenames_when_supported(
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    create_video(input_dir / "Clip.MP4")
+    create_video(input_dir / "clip.mp4")
+    discovered_filenames = tuple(path.name for path in input_dir.iterdir())
+    if len(discovered_filenames) < 2:
+        pytest.skip("filesystem does not support case-ambiguous filenames")
+
+    with pytest.raises(ValueError, match=r"ambiguous"):
+        collect_videos(input_dir, tmp_path / "missing-order.txt")
 
 
 def test_write_order_file_creates_parent_and_writes_exact_content(

@@ -37,7 +37,7 @@ def collect_videos(input_dir: Path, order_file: Path) -> CollectionResult:
     input_dir = Path(input_dir)
     order_file = Path(order_file)
     videos = tuple(
-        InputVideo(path=path, modified_time=path.stat().st_mtime)
+        InputVideo(path=path.resolve(), modified_time=path.stat().st_mtime)
         for path in input_dir.iterdir()
         if path.is_file() and path.suffix.casefold() in SUPPORTED_EXTENSIONS
     )
@@ -45,6 +45,16 @@ def collect_videos(input_dir: Path, order_file: Path) -> CollectionResult:
         raise InputDirectoryEmptyError(
             f"Input directory has no supported video files: {input_dir}"
         )
+
+    videos_by_name = {}
+    for video in videos:
+        normalized_name = video.path.name.casefold()
+        if normalized_name in videos_by_name:
+            raise ValueError(
+                "Input directory contains case-insensitive ambiguous video filenames: "
+                f"{videos_by_name[normalized_name].path.name}, {video.path.name}"
+            )
+        videos_by_name[normalized_name] = video
 
     natural_order = tuple(sorted(videos, key=_natural_key))
     modified_time_order = tuple(
@@ -58,25 +68,50 @@ def collect_videos(input_dir: Path, order_file: Path) -> CollectionResult:
     if order_file.exists():
         listed_filenames = tuple(
             line.strip()
-            for line in order_file.read_text(encoding="utf-8").splitlines()
+            for line in order_file.read_text(encoding="utf-8-sig").splitlines()
             if line.strip()
         )
-        videos_by_name = {video.path.name: video for video in videos}
+        if not listed_filenames:
+            raise ValueError(f"Order file is blank: {order_file}")
+
+        normalized_filenames = tuple(
+            filename.casefold() for filename in listed_filenames
+        )
+        seen_filenames = set()
+        for filename, normalized_filename in zip(
+            listed_filenames, normalized_filenames
+        ):
+            if normalized_filename in seen_filenames:
+                raise ValueError(
+                    f"Order file contains duplicate input video entry: {filename}"
+                )
+            seen_filenames.add(normalized_filename)
+
         missing_filenames = [
-            filename for filename in listed_filenames if filename not in videos_by_name
+            filename
+            for filename, normalized_filename in zip(
+                listed_filenames, normalized_filenames
+            )
+            if normalized_filename not in videos_by_name
         ]
         if missing_filenames:
             raise ValueError(
                 f"Order file references missing input video: {missing_filenames[0]}"
             )
 
-        files = tuple(videos_by_name[filename] for filename in listed_filenames)
-        listed_filename_set = set(listed_filenames)
+        files = tuple(
+            videos_by_name[normalized_filename]
+            for normalized_filename in normalized_filenames
+        )
+        listed_filename_set = set(normalized_filenames)
         warnings.extend(
             f"order_file_omits_input: {video.path.name}"
             for video in natural_order
-            if video.path.name not in listed_filename_set
+            if video.path.name.casefold() not in listed_filename_set
         )
+    elif not all(re.search(r"\d+", video.path.stem) for video in videos):
+        files = modified_time_order
+        warnings.append("filename_order_unreliable_using_mtime")
 
     return CollectionResult(
         files=files,
