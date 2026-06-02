@@ -62,6 +62,15 @@ def _parse_rate(value: object, path: Path) -> float:
     return rate
 
 
+def _parse_frame_rate(video: dict[str, Any], path: Path) -> float:
+    for field in ("avg_frame_rate", "r_frame_rate"):
+        try:
+            return _parse_rate(video.get(field), path)
+        except VideoProbeError:
+            pass
+    raise _payload_error(path, "invalid frame rate") from None
+
+
 def _parse_positive_int(value: object, field: str, path: Path) -> int:
     if isinstance(value, bool):
         raise _payload_error(path, f"invalid video {field}")
@@ -92,7 +101,7 @@ def probe_video(path: Path) -> VideoMetadata:
         "-v",
         "error",
         "-show_entries",
-        "format=duration:stream=codec_type,codec_name,width,height,r_frame_rate",
+        "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate",
         "-of",
         "json",
         str(source_path),
@@ -115,7 +124,7 @@ def probe_video(path: Path) -> VideoMetadata:
         duration_seconds=_parse_duration(payload, source_path),
         width=_parse_positive_int(video.get("width"), "width", source_path),
         height=_parse_positive_int(video.get("height"), "height", source_path),
-        fps=_parse_rate(video.get("r_frame_rate"), source_path),
+        fps=_parse_frame_rate(video, source_path),
         codec=codec,
         has_audio=any(
             isinstance(stream, dict) and stream.get("codec_type") == "audio"

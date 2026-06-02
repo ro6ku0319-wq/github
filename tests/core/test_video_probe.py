@@ -25,6 +25,7 @@ def valid_payload(*, include_audio: bool = True) -> dict[str, object]:
             "codec_type": "video",
             "width": 1920,
             "height": 1080,
+            "avg_frame_rate": "30/1",
             "r_frame_rate": "30/1",
             "codec_name": "h264",
         },
@@ -72,7 +73,7 @@ def test_probe_video_normalizes_ffprobe_json(
                 "-v",
                 "error",
                 "-show_entries",
-                "format=duration:stream=codec_type,codec_name,width,height,r_frame_rate",
+                "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate",
                 "-of",
                 "json",
                 str(video.resolve()),
@@ -80,6 +81,43 @@ def test_probe_video_normalizes_ffprobe_json(
             {"capture_output": True, "text": True, "check": True},
         )
     ]
+
+
+def test_probe_video_prefers_valid_average_frame_rate(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    video = tmp_path / "variable-rate.mp4"
+    create_video(video)
+    payload = valid_payload()
+    payload["streams"][0]["avg_frame_rate"] = "24000/1001"  # type: ignore[index]
+    payload["streams"][0]["r_frame_rate"] = "30/1"  # type: ignore[index]
+    mock_ffprobe(monkeypatch, json.dumps(payload))
+
+    metadata = probe_video(video)
+
+    assert metadata.fps == pytest.approx(24000 / 1001)
+
+
+@pytest.mark.parametrize("average_rate", [None, "0/0"])
+def test_probe_video_falls_back_to_raw_frame_rate_when_average_rate_is_unusable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    average_rate: str | None,
+) -> None:
+    video = tmp_path / "fallback-rate.mp4"
+    create_video(video)
+    payload = valid_payload()
+    if average_rate is None:
+        del payload["streams"][0]["avg_frame_rate"]  # type: ignore[index]
+    else:
+        payload["streams"][0]["avg_frame_rate"] = average_rate  # type: ignore[index]
+    payload["streams"][0]["r_frame_rate"] = "30000/1001"  # type: ignore[index]
+    mock_ffprobe(monkeypatch, json.dumps(payload))
+
+    metadata = probe_video(video)
+
+    assert metadata.fps == pytest.approx(30000 / 1001)
 
 
 def test_probe_video_reports_absent_audio_stream(
@@ -126,6 +164,26 @@ def test_probe_video_rejects_malformed_json(
     with pytest.raises(
         VideoProbeError,
         match=r"broken\.mp4.*malformed JSON",
+    ) as exc_info:
+        probe_video(video)
+
+    assert_no_exposed_internal_context(exc_info.value)
+
+
+def test_probe_video_suppresses_parser_context_when_average_and_raw_rates_are_invalid(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    video = tmp_path / "bad-fallback-rate.mp4"
+    create_video(video)
+    payload = valid_payload()
+    payload["streams"][0]["avg_frame_rate"] = "0/0"  # type: ignore[index]
+    payload["streams"][0]["r_frame_rate"] = "30/0"  # type: ignore[index]
+    mock_ffprobe(monkeypatch, json.dumps(payload))
+
+    with pytest.raises(
+        VideoProbeError,
+        match=r"bad-fallback-rate\.mp4.*invalid frame rate",
     ) as exc_info:
         probe_video(video)
 
@@ -190,6 +248,7 @@ def test_probe_video_rejects_zero_denominator_or_invalid_frame_rate(
     video = tmp_path / "bad-rate.mp4"
     create_video(video)
     payload = valid_payload()
+    del payload["streams"][0]["avg_frame_rate"]  # type: ignore[index]
     payload["streams"][0]["r_frame_rate"] = rate  # type: ignore[index]
     mock_ffprobe(monkeypatch, json.dumps(payload))
 
