@@ -9,6 +9,11 @@ import pytest
 from src.core.video_probe import VideoMetadata, VideoProbeError, probe_video
 
 
+def assert_no_exposed_internal_context(error: VideoProbeError) -> None:
+    assert error.__cause__ is None
+    assert error.__context__ is None or error.__suppress_context__
+
+
 def create_video(path: Path, modified_time: float = 100.0) -> None:
     path.write_bytes(b"video")
     os.utime(path, (modified_time, modified_time))
@@ -118,8 +123,13 @@ def test_probe_video_rejects_malformed_json(
     create_video(video)
     mock_ffprobe(monkeypatch, "{not-json")
 
-    with pytest.raises(VideoProbeError, match=r"broken\.mp4.*malformed JSON"):
+    with pytest.raises(
+        VideoProbeError,
+        match=r"broken\.mp4.*malformed JSON",
+    ) as exc_info:
         probe_video(video)
+
+    assert_no_exposed_internal_context(exc_info.value)
 
 
 def test_probe_video_rejects_missing_video_stream(
@@ -162,8 +172,13 @@ def test_probe_video_rejects_missing_or_invalid_duration(
         payload["format"]["duration"] = duration  # type: ignore[index]
     mock_ffprobe(monkeypatch, json.dumps(payload))
 
-    with pytest.raises(VideoProbeError, match=rf"bad-duration\.mp4.*{cause}"):
+    with pytest.raises(
+        VideoProbeError,
+        match=rf"bad-duration\.mp4.*{cause}",
+    ) as exc_info:
         probe_video(video)
+
+    assert_no_exposed_internal_context(exc_info.value)
 
 
 @pytest.mark.parametrize("rate", ["30/0", "not-a-rate", "0/1"])
@@ -178,5 +193,10 @@ def test_probe_video_rejects_zero_denominator_or_invalid_frame_rate(
     payload["streams"][0]["r_frame_rate"] = rate  # type: ignore[index]
     mock_ffprobe(monkeypatch, json.dumps(payload))
 
-    with pytest.raises(VideoProbeError, match=r"bad-rate\.mp4.*invalid frame rate"):
+    with pytest.raises(
+        VideoProbeError,
+        match=r"bad-rate\.mp4.*invalid frame rate",
+    ) as exc_info:
         probe_video(video)
+
+    assert_no_exposed_internal_context(exc_info.value)

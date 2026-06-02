@@ -43,8 +43,8 @@ def _parse_duration(payload: dict[str, Any], path: Path) -> float:
         raise _payload_error(path, "invalid duration")
     try:
         duration = float(value)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise _payload_error(path, "invalid duration") from exc
+    except (TypeError, ValueError, OverflowError):
+        raise _payload_error(path, "invalid duration") from None
     if not math.isfinite(duration) or duration <= 0:
         raise _payload_error(path, "invalid duration")
     return duration
@@ -55,8 +55,8 @@ def _parse_rate(value: object, path: Path) -> float:
         raise _payload_error(path, "invalid frame rate")
     try:
         rate = float(Fraction(str(value)))
-    except (ValueError, ZeroDivisionError, OverflowError) as exc:
-        raise _payload_error(path, "invalid frame rate") from exc
+    except (ValueError, ZeroDivisionError, OverflowError):
+        raise _payload_error(path, "invalid frame rate") from None
     if not math.isfinite(rate) or rate <= 0:
         raise _payload_error(path, "invalid frame rate")
     return rate
@@ -67,8 +67,8 @@ def _parse_positive_int(value: object, field: str, path: Path) -> int:
         raise _payload_error(path, f"invalid video {field}")
     try:
         parsed = int(value)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise _payload_error(path, f"invalid video {field}") from exc
+    except (TypeError, ValueError, OverflowError):
+        raise _payload_error(path, f"invalid video {field}") from None
     if parsed <= 0:
         raise _payload_error(path, f"invalid video {field}")
     return parsed
@@ -100,8 +100,8 @@ def probe_video(path: Path) -> VideoMetadata:
     completed = subprocess.run(command, capture_output=True, text=True, check=True)
     try:
         payload = json.loads(completed.stdout)
-    except (json.JSONDecodeError, TypeError) as exc:
-        raise _payload_error(source_path, "malformed JSON") from exc
+    except (json.JSONDecodeError, TypeError):
+        raise _payload_error(source_path, "malformed JSON") from None
     if not isinstance(payload, dict):
         raise _payload_error(source_path, "expected JSON object")
 
