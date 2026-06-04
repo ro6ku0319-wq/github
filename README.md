@@ -1,7 +1,7 @@
 # OB11 ZBrush Body Cut
 
 ## 当前能力
-本工具用于整理 ZBrush 自带缩时录制产生的多段视频。当前可运行切片支持素材排序、ffprobe 元数据读取、全局时间线、FFmpeg 拼接、加速基础视频、中文 GUI、实时日志和共享调试 CLI。
+本工具用于整理 ZBrush 自带缩时录制产生的多段视频。当前可运行切片支持素材排序、ffprobe 元数据读取、全局时间线、FFmpeg 拼接、默认 8 倍加速基础视频、中文 GUI、实时日志和共享调试 CLI。
 
 ## 边界
 本工具只负责雕刻过程的 body cut 基础处理。标题、BGM、字幕、片尾、最终微调和发布包装仍在 DaVinci Resolve 中完成。
@@ -40,7 +40,7 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 
 ## 基础输出
 - `output/full_concat.mp4`：按最终顺序拼接的基础视频，会重新编码、归一化为 1080x1920 竖屏、强制目标 FPS，并去除音频。
-- `output/accelerated_base.mp4`：在拼接结果上再次加速的分析基础视频。
+- `output/accelerated_base.mp4`：在拼接结果上再次执行默认 8 倍加速的分析基础视频。
 - `output/input_order.txt`：最终顺序、自然文件名顺序、修改时间顺序、warning 和全局时间线。
 - `output/edit_report.json`：机器可读的视频元数据、全局时间线和 warning。
 - `output/edit_report.txt`：便于人工阅读的视频信息、时间线和 warning。
@@ -58,6 +58,9 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 ```
 
 三个阶段开关互斥。`--only-accelerate` 假设 `output/full_concat.mp4` 已经存在。
+
+## 后续切片
+后续版本会继续加入节点分析、人工审查、45/60/120 秒 body cut、LLM 证据包和 Blender Hook 自动拼接。当前版本先完成稳定的输入排序、基础拼接、8 倍加速、报告和 GUI 操作底座。
 
 ## 验收步骤
 1. 将 1 到 5 段真实 ZBrush 缩时视频放入 `input/`。

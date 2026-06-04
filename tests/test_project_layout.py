@@ -8,7 +8,9 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
     assert (root / "make_timelapse.py").exists()
     for directory in ("input", "input/hook", "output", "logs"):
         assert (root / directory).is_dir()
-        assert (root / directory / ".gitkeep").exists()
+        gitkeep = root / directory / ".gitkeep"
+        assert gitkeep.exists()
+        assert gitkeep.read_bytes() == b""
 
     readme = (root / "README.md").read_text(encoding="utf-8")
     for expected in (
@@ -26,6 +28,13 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         "重新编码",
         "1080x1920",
         "去除音频",
+        "8 倍加速",
+        "后续切片",
+        "节点分析",
+        "人工审查",
+        "45/60/120 秒 body cut",
+        "LLM 证据包",
+        "Blender Hook 自动拼接",
     ):
         assert expected in readme
 
