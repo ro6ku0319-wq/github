@@ -44,6 +44,7 @@ def patch_cli_dependencies(
         ) -> None:
             self.collection = SimpleNamespace(files=["part1.mp4", "part2.mp4"])
             self.metadata = ["metadata1", "metadata2"]
+            self.tool_validator = lambda: calls.append("validate_tools")
             calls.append(("pipeline", Path(project_dir), config_arg, log))
 
         def run_all(self) -> None:
@@ -74,8 +75,18 @@ def stage_calls(calls: list[object]) -> list[str]:
     return [call for call in calls if isinstance(call, str)]
 
 
+@pytest.mark.parametrize(
+    ("switch", "attribute"),
+    [
+        ("--run-foundation", "run_foundation"),
+        ("--only-full-concat", "only_full_concat"),
+        ("--only-accelerate", "only_accelerate"),
+    ],
+)
 def test_build_parser_supports_project_dir_and_foundation_stage_switches(
     tmp_path: Path,
+    switch: str,
+    attribute: str,
 ) -> None:
     cli = load_cli_module()
     parser = cli.build_parser()
@@ -85,16 +96,20 @@ def test_build_parser_supports_project_dir_and_foundation_stage_switches(
         [
             "--project-dir",
             str(project_dir),
-            "--run-foundation",
-            "--only-full-concat",
-            "--only-accelerate",
+            switch,
         ]
     )
 
     assert args.project_dir == project_dir
-    assert args.run_foundation is True
-    assert args.only_full_concat is True
-    assert args.only_accelerate is True
+    assert getattr(args, attribute) is True
+
+
+def test_build_parser_rejects_conflicting_stage_switches() -> None:
+    cli = load_cli_module()
+    parser = cli.build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--only-full-concat", "--only-accelerate"])
 
 
 def test_main_loads_configures_logger_and_runs_foundation(
@@ -126,7 +141,7 @@ def test_main_only_full_concat_collects_probes_and_concats(
     result = cli.main(["--project-dir", str(tmp_path), "--only-full-concat"])
 
     assert result == 0
-    assert stage_calls(calls) == ["collect", "probe", "concat"]
+    assert stage_calls(calls) == ["validate_tools", "collect", "probe", "concat"]
 
 
 def test_main_only_accelerate_runs_accelerated_base_stage(
@@ -140,7 +155,7 @@ def test_main_only_accelerate_runs_accelerated_base_stage(
     result = cli.main(["--project-dir", str(tmp_path), "--only-accelerate"])
 
     assert result == 0
-    assert stage_calls(calls) == ["accelerate"]
+    assert stage_calls(calls) == ["validate_tools", "accelerate"]
 
 
 def test_main_without_stage_exits_with_clear_simplified_chinese_message(
@@ -159,3 +174,4 @@ def test_main_without_stage_exits_with_clear_simplified_chinese_message(
     assert "--run-foundation" in message
     assert "GUI" in message
     assert "python app.py" in message
+    assert calls == []
