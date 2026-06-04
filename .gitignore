@@ -5,3 +5,13 @@ __pycache__/
 .pytest_cache/
 .venv/
 
+input/*
+!input/.gitkeep
+!input/hook/
+input/hook/*
+!input/hook/.gitkeep
+output/*
+!output/.gitkeep
+logs/*
+!logs/.gitkeep
+

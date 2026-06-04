@@ -12,8 +12,6 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
 
     readme = (root / "README.md").read_text(encoding="utf-8")
     for expected in (
-        "python app.py",
-        "python make_timelapse.py --run-foundation",
         "full_concat.mp4",
         "accelerated_base.mp4",
         "Blender Hook",
@@ -21,3 +19,30 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         "ZBrush",
     ):
         assert expected in readme
+
+    for expected in (
+        r".\.venv\Scripts\python.exe app.py",
+        r".\.venv\Scripts\python.exe make_timelapse.py --run-foundation",
+        "重新编码",
+        "1080x1920",
+        "去除音频",
+    ):
+        assert expected in readme
+
+
+def test_runtime_outputs_are_gitignored_but_gitkeep_files_are_tracked() -> None:
+    root = Path(__file__).resolve().parents[1]
+    gitignore = (root / ".gitignore").read_text(encoding="utf-8")
+
+    for expected in (
+        "input/*",
+        "!input/.gitkeep",
+        "!input/hook/",
+        "input/hook/*",
+        "!input/hook/.gitkeep",
+        "output/*",
+        "!output/.gitkeep",
+        "logs/*",
+        "!logs/.gitkeep",
+    ):
+        assert expected in gitignore
