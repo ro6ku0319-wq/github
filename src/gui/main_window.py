@@ -99,6 +99,9 @@ class MainWindow(QMainWindow):
             self.log_panel.append_log("warning: " + warning)
 
     def _save_input_order(self) -> None:
+        if not self.input_panel.ordered_names():
+            self.log_panel.append_log("请先扫描素材，再保存 order.txt")
+            return
         try:
             config = self._load_config()
             _input_dir, order_file = self._input_paths(config)
@@ -109,6 +112,10 @@ class MainWindow(QMainWindow):
         self.log_panel.append_log(f"已保存素材顺序: {order_file}")
 
     def _run_foundation(self) -> None:
+        if self.active_workers:
+            self.log_panel.append_log("基础处理正在运行，请等待当前任务完成")
+            return
+
         def task(signals: WorkerSignals) -> None:
             config = self._load_config()
             pipeline = FoundationPipeline(
@@ -125,6 +132,7 @@ class MainWindow(QMainWindow):
         worker.signals.succeeded.connect(lambda message: self._finish_worker(worker, message))
         worker.signals.failed.connect(lambda message: self._finish_worker(worker, message))
         self.active_workers.add(worker)
+        self.processing_panel.run_foundation.setEnabled(False)
         self.thread_pool.start(worker)
 
     def _set_progress(self, value: int, message: str) -> None:
@@ -134,3 +142,5 @@ class MainWindow(QMainWindow):
     def _finish_worker(self, worker: TaskWorker, message: str) -> None:
         self.log_panel.append_log(message)
         self.active_workers.discard(worker)
+        if not self.active_workers:
+            self.processing_panel.run_foundation.setEnabled(True)

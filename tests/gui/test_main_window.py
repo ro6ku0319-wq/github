@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pytest
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
@@ -30,6 +32,50 @@ def test_main_window_contains_navigation_progress_and_log_panel(
     assert window.processing_panel.run_foundation.text() == "一键执行基础流程"
     assert window.thread_pool.maxThreadCount() >= 1
 
+    window.close()
+    app.processEvents()
+
+
+def test_save_input_order_rejects_empty_table_without_writing_order_file(
+    tmp_path: Path,
+) -> None:
+    app = get_app()
+    window = MainWindow(tmp_path)
+    order_file = tmp_path / "input" / "order.txt"
+
+    window._save_input_order()
+
+    assert not order_file.exists()
+    assert "请先扫描素材" in window.log_panel.toPlainText()
+    window.close()
+    app.processEvents()
+
+
+def test_run_foundation_ignores_repeat_click_while_worker_is_active(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = get_app()
+    window = MainWindow(tmp_path)
+    started_workers: list[object] = []
+
+    class RecordingPool:
+        def maxThreadCount(self) -> int:
+            return 1
+
+        def start(self, worker: object) -> None:
+            started_workers.append(worker)
+
+    monkeypatch.setattr(window, "thread_pool", RecordingPool())
+
+    window._run_foundation()
+    window._run_foundation()
+
+    assert len(started_workers) == 1
+    assert not window.processing_panel.run_foundation.isEnabled()
+    assert "基础处理正在运行" in window.log_panel.toPlainText()
+    window._finish_worker(started_workers[0], "基础处理完成")
+    assert window.processing_panel.run_foundation.isEnabled()
     window.close()
     app.processEvents()
 
