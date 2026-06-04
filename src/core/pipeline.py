@@ -104,6 +104,20 @@ class FoundationPipeline:
             collection.warnings,
         )
 
+    def create_full_concat(self, metadata: list[VideoMetadata]) -> None:
+        self.processor.create_full_concat(
+            [item.path for item in metadata],
+            self.output_dir / "full_concat.mp4",
+            self.output_dir / "concat_list.txt",
+        )
+
+    def create_accelerated_base(self) -> None:
+        self.processor.create_accelerated_base(
+            self.output_dir / "full_concat.mp4",
+            self.output_dir / "accelerated_base.mp4",
+            self._acceleration_factor(),
+        )
+
     def run_all(self) -> None:
         self.tool_validator()
         self._update(5, "扫描输入素材")
@@ -116,18 +130,10 @@ class FoundationPipeline:
         self._update(30, "生成 full_concat.mp4")
         full_concat = self.output_dir / "full_concat.mp4"
         accelerated_base = self.output_dir / "accelerated_base.mp4"
-        self.processor.create_full_concat(
-            [item.path for item in metadata],
-            full_concat,
-            self.output_dir / "concat_list.txt",
-        )
+        self.create_full_concat(metadata)
         self.log(f"输出: {full_concat}")
 
         self._update(70, "生成 accelerated_base.mp4")
-        self.processor.create_accelerated_base(
-            full_concat,
-            accelerated_base,
-            self._acceleration_factor(),
-        )
+        self.create_accelerated_base()
         self.log(f"输出: {accelerated_base}")
         self._update(100, "基础处理完成")

@@ -285,3 +285,58 @@ def test_run_all_validates_tools_writes_reports_runs_media_and_reports_progress(
         assert expected in log_text
     assert "full_concat.mp4" in log_text
     assert "accelerated_base.mp4" in log_text
+
+
+def test_create_full_concat_delegates_to_processor_with_metadata_paths(
+    tmp_path: Path,
+) -> None:
+    metadata = [
+        make_metadata(tmp_path / "clips" / "part1.mp4"),
+        make_metadata(tmp_path / "clips" / "part2.mp4"),
+    ]
+    processor = FakeProcessor()
+    pipeline = FoundationPipeline(
+        tmp_path,
+        {"output": {"output_dir": "rendered"}},
+        processor=processor,
+        tool_validator=lambda: None,
+    )
+
+    pipeline.create_full_concat(metadata)
+
+    output_dir = tmp_path.resolve() / "rendered"
+    assert processor.calls == [
+        (
+            "concat",
+            [item.path for item in metadata],
+            output_dir / "full_concat.mp4",
+            output_dir / "concat_list.txt",
+        )
+    ]
+
+
+def test_create_accelerated_base_delegates_to_processor_with_configured_factor(
+    tmp_path: Path,
+) -> None:
+    processor = FakeProcessor()
+    pipeline = FoundationPipeline(
+        tmp_path,
+        {
+            "output": {"output_dir": "rendered"},
+            "base_processing": {"acceleration_factor": 6.5},
+        },
+        processor=processor,
+        tool_validator=lambda: None,
+    )
+
+    pipeline.create_accelerated_base()
+
+    output_dir = tmp_path.resolve() / "rendered"
+    assert processor.calls == [
+        (
+            "accelerate",
+            output_dir / "full_concat.mp4",
+            output_dir / "accelerated_base.mp4",
+            6.5,
+        )
+    ]
