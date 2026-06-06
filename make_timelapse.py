@@ -6,7 +6,9 @@ from typing import Sequence
 
 from src.core.config_manager import ConfigManager
 from src.core.logging_setup import ProjectLogger
+from src.core.node_analysis_pipeline import NodeAnalysisPipeline
 from src.core.pipeline import FoundationPipeline
+from src.core.review_export_pipeline import ReviewExportPipeline
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,6 +18,8 @@ def build_parser() -> argparse.ArgumentParser:
     stages.add_argument("--run-foundation", action="store_true")
     stages.add_argument("--only-full-concat", action="store_true")
     stages.add_argument("--only-accelerate", action="store_true")
+    stages.add_argument("--analyze-nodes", action="store_true")
+    stages.add_argument("--export-cuts", action="store_true")
     return parser
 
 
@@ -28,14 +32,28 @@ def _logs_dir(project_dir: Path, config: dict) -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if not (args.run_foundation or args.only_full_concat or args.only_accelerate):
+    if not (
+        args.run_foundation
+        or args.only_full_concat
+        or args.only_accelerate
+        or args.analyze_nodes
+        or args.export_cuts
+    ):
         raise SystemExit(
-            "请选择 --run-foundation。日常建议使用 GUI: python app.py"
+            "请选择 --run-foundation、--analyze-nodes 或 --export-cuts。"
+            "日常建议使用 GUI: python app.py"
         )
 
     manager = ConfigManager(args.project_dir)
     config = manager.load()
     logger = ProjectLogger(_logs_dir(args.project_dir, config), sink=print)
+    if args.analyze_nodes:
+        NodeAnalysisPipeline(args.project_dir, config, log=logger).run_all()
+        return 0
+    if args.export_cuts:
+        ReviewExportPipeline(args.project_dir, config, log=logger).run_all()
+        return 0
+
     pipeline = FoundationPipeline(args.project_dir, config, log=logger)
 
     if args.run_foundation:

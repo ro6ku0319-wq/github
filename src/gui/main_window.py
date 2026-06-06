@@ -18,9 +18,12 @@ from PySide6.QtWidgets import (
 from src.core.config_manager import ConfigManager
 from src.core.file_collector import collect_videos, write_order_file
 from src.core.logging_setup import ProjectLogger
+from src.core.node_analysis_pipeline import NodeAnalysisPipeline
 from src.core.pipeline import FoundationPipeline
+from src.core.review_export_pipeline import ReviewExportPipeline
 from src.gui.input_panel import InputPanel
 from src.gui.log_panel import LogPanel
+from src.gui.node_review_panel import NodeReviewPanel
 from src.gui.processing_panel import ProcessingPanel
 from src.gui.workers import TaskWorker, WorkerSignals
 
@@ -43,13 +46,15 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self.navigation = QListWidget()
-        self.navigation.addItems(["项目设置", "素材管理", "基础处理", "日志"])
+        self.navigation.addItems(["项目设置", "素材管理", "基础处理", "节点审查", "日志"])
         self.pages = QStackedWidget()
         self.pages.addWidget(QLabel("项目设置"))
         self.input_panel = InputPanel()
         self.pages.addWidget(self.input_panel)
         self.processing_panel = ProcessingPanel()
         self.pages.addWidget(self.processing_panel)
+        self.node_review_panel = NodeReviewPanel()
+        self.pages.addWidget(self.node_review_panel)
         self.pages.addWidget(QLabel("日志"))
 
         splitter.addWidget(self.navigation)
@@ -70,6 +75,10 @@ class MainWindow(QMainWindow):
         self.input_panel.scan_requested.connect(self._scan_inputs)
         self.input_panel.save_order_requested.connect(self._save_input_order)
         self.processing_panel.run_foundation.clicked.connect(self._run_foundation)
+        self.processing_panel.run_node_analysis.clicked.connect(self._run_node_analysis)
+        self.processing_panel.run_exports.clicked.connect(self._run_exports)
+        self.node_review_panel.refresh_requested.connect(self._load_cut_decision)
+        self.node_review_panel.save_requested.connect(self._save_cut_decision)
 
     def _load_config(self) -> dict[str, Any]:
         return ConfigManager(self.project_dir).load()
@@ -85,6 +94,10 @@ class MainWindow(QMainWindow):
     def _logs_dir(self, config: dict[str, Any]) -> Path:
         output_config = _section(config, "output")
         return self.project_dir / str(output_config.get("logs_dir", "logs"))
+
+    def _output_dir(self, config: dict[str, Any]) -> Path:
+        output_config = _section(config, "output")
+        return self.project_dir / str(output_config.get("output_dir", "output"))
 
     def _scan_inputs(self) -> None:
         try:
@@ -132,7 +145,57 @@ class MainWindow(QMainWindow):
         worker.signals.succeeded.connect(lambda message: self._finish_worker(worker, message))
         worker.signals.failed.connect(lambda message: self._finish_worker(worker, message))
         self.active_workers.add(worker)
-        self.processing_panel.run_foundation.setEnabled(False)
+        self._set_processing_enabled(False)
+        self.thread_pool.start(worker)
+
+    def _run_node_analysis(self) -> None:
+        if self.active_workers:
+            self.log_panel.append_log("任务正在运行，请等待当前任务完成")
+            return
+
+        def task(signals: WorkerSignals) -> None:
+            config = self._load_config()
+            pipeline = NodeAnalysisPipeline(
+                self.project_dir,
+                config,
+                log=ProjectLogger(self._logs_dir(config), sink=signals.log.emit),
+                progress=signals.progress.emit,
+            )
+            pipeline.run_all()
+
+        worker = TaskWorker(task, "节点分析")
+        worker.signals.log.connect(self.log_panel.append_log)
+        worker.signals.progress.connect(self._set_progress)
+        worker.signals.succeeded.connect(
+            lambda message: self._finish_node_analysis_worker(worker, message)
+        )
+        worker.signals.failed.connect(lambda message: self._finish_worker(worker, message))
+        self.active_workers.add(worker)
+        self._set_processing_enabled(False)
+        self.thread_pool.start(worker)
+
+    def _run_exports(self) -> None:
+        if self.active_workers:
+            self.log_panel.append_log("任务正在运行，请等待当前任务完成")
+            return
+
+        def task(signals: WorkerSignals) -> None:
+            config = self._load_config()
+            pipeline = ReviewExportPipeline(
+                self.project_dir,
+                config,
+                log=ProjectLogger(self._logs_dir(config), sink=signals.log.emit),
+                progress=signals.progress.emit,
+            )
+            pipeline.run_all()
+
+        worker = TaskWorker(task, "导出 body cut")
+        worker.signals.log.connect(self.log_panel.append_log)
+        worker.signals.progress.connect(self._set_progress)
+        worker.signals.succeeded.connect(lambda message: self._finish_worker(worker, message))
+        worker.signals.failed.connect(lambda message: self._finish_worker(worker, message))
+        self.active_workers.add(worker)
+        self._set_processing_enabled(False)
         self.thread_pool.start(worker)
 
     def _set_progress(self, value: int, message: str) -> None:
@@ -143,4 +206,33 @@ class MainWindow(QMainWindow):
         self.log_panel.append_log(message)
         self.active_workers.discard(worker)
         if not self.active_workers:
-            self.processing_panel.run_foundation.setEnabled(True)
+            self._set_processing_enabled(True)
+
+    def _finish_node_analysis_worker(self, worker: TaskWorker, message: str) -> None:
+        self._finish_worker(worker, message)
+        self._load_cut_decision()
+
+    def _set_processing_enabled(self, enabled: bool) -> None:
+        self.processing_panel.run_foundation.setEnabled(enabled)
+        self.processing_panel.run_node_analysis.setEnabled(enabled)
+        self.processing_panel.run_exports.setEnabled(enabled)
+
+    def _load_cut_decision(self) -> None:
+        try:
+            config = self._load_config()
+            path = self._output_dir(config) / "cut_decision.csv"
+            self.node_review_panel.load_csv(path)
+        except Exception as error:
+            self.log_panel.append_log(f"加载 cut_decision.csv 失败: {error}")
+            return
+        self.log_panel.append_log("已加载 cut_decision.csv")
+
+    def _save_cut_decision(self) -> None:
+        try:
+            config = self._load_config()
+            path = self._output_dir(config) / "cut_decision.csv"
+            self.node_review_panel.save_csv(path)
+        except Exception as error:
+            self.log_panel.append_log(f"保存 cut_decision.csv 失败: {error}")
+            return
+        self.log_panel.append_log("已保存 cut_decision.csv")

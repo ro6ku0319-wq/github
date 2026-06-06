@@ -70,6 +70,34 @@ def patch_cli_dependencies(
     monkeypatch.setattr(cli_module, "ProjectLogger", FakeProjectLogger)
     monkeypatch.setattr(cli_module, "FoundationPipeline", FakeFoundationPipeline)
 
+    class FakeNodeAnalysisPipeline:
+        def __init__(
+            self,
+            project_dir: Path,
+            config_arg: dict[str, object],
+            log: FakeProjectLogger,
+        ) -> None:
+            calls.append(("node_pipeline", Path(project_dir), config_arg, log))
+
+        def run_all(self) -> None:
+            calls.append("analyze_nodes")
+
+    monkeypatch.setattr(cli_module, "NodeAnalysisPipeline", FakeNodeAnalysisPipeline)
+
+    class FakeReviewExportPipeline:
+        def __init__(
+            self,
+            project_dir: Path,
+            config_arg: dict[str, object],
+            log: FakeProjectLogger,
+        ) -> None:
+            calls.append(("export_pipeline", Path(project_dir), config_arg, log))
+
+        def run_all(self) -> None:
+            calls.append("export_cuts")
+
+    monkeypatch.setattr(cli_module, "ReviewExportPipeline", FakeReviewExportPipeline)
+
 
 def stage_calls(calls: list[object]) -> list[str]:
     return [call for call in calls if isinstance(call, str)]
@@ -81,6 +109,8 @@ def stage_calls(calls: list[object]) -> list[str]:
         ("--run-foundation", "run_foundation"),
         ("--only-full-concat", "only_full_concat"),
         ("--only-accelerate", "only_accelerate"),
+        ("--analyze-nodes", "analyze_nodes"),
+        ("--export-cuts", "export_cuts"),
     ],
 )
 def test_build_parser_supports_project_dir_and_foundation_stage_switches(
@@ -158,6 +188,36 @@ def test_main_only_accelerate_runs_accelerated_base_stage(
     assert stage_calls(calls) == ["validate_tools", "accelerate"]
 
 
+def test_main_analyze_nodes_runs_node_analysis_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cli = load_cli_module()
+    calls: list[object] = []
+    patch_cli_dependencies(monkeypatch, cli, calls)
+
+    result = cli.main(["--project-dir", str(tmp_path), "--analyze-nodes"])
+
+    assert result == 0
+    assert calls[3][0] == "node_pipeline"
+    assert calls[4] == "analyze_nodes"
+
+
+def test_main_export_cuts_runs_review_export_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cli = load_cli_module()
+    calls: list[object] = []
+    patch_cli_dependencies(monkeypatch, cli, calls)
+
+    result = cli.main(["--project-dir", str(tmp_path), "--export-cuts"])
+
+    assert result == 0
+    assert calls[3][0] == "export_pipeline"
+    assert calls[4] == "export_cuts"
+
+
 def test_main_without_stage_exits_with_clear_simplified_chinese_message(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -172,6 +232,8 @@ def test_main_without_stage_exits_with_clear_simplified_chinese_message(
     message = str(exc_info.value)
     assert "请选择" in message
     assert "--run-foundation" in message
+    assert "--analyze-nodes" in message
+    assert "--export-cuts" in message
     assert "GUI" in message
     assert "python app.py" in message
     assert calls == []
