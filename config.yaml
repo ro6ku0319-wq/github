@@ -24,6 +24,7 @@ base_processing:
   preserve_audio: false
 
 output_video:
+  resolution_preset: "portrait_1080p"
   width: 1080
   height: 1920
   fps: 30

@@ -340,3 +340,23 @@ def test_create_accelerated_base_delegates_to_processor_with_configured_factor(
             6.5,
         )
     ]
+
+
+def test_pipeline_builds_processor_with_configured_output_resolution(
+    tmp_path: Path,
+) -> None:
+    pipeline = FoundationPipeline(
+        tmp_path,
+        {
+            "output_video": {
+                "width": 2560,
+                "height": 1440,
+                "fps": 30,
+                "pixel_format": "yuv420p",
+            }
+        },
+        tool_validator=lambda: None,
+    )
+
+    assert pipeline.processor.settings.width == 2560
+    assert pipeline.processor.settings.height == 1440

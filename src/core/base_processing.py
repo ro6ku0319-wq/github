@@ -24,7 +24,7 @@ class BaseProcessor:
         self.runner = runner
         self.settings = settings
 
-    def _vertical_filter(self) -> str:
+    def _output_filter(self) -> str:
         width = self.settings.width
         height = self.settings.height
         return (
@@ -60,7 +60,7 @@ class BaseProcessor:
                 "-i",
                 str(concat_list),
                 "-vf",
-                self._vertical_filter(),
+                self._output_filter(),
                 "-r",
                 str(self.settings.fps),
                 "-c:v",

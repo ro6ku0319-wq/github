@@ -33,8 +33,42 @@ def test_main_window_contains_navigation_progress_and_log_panel(
     assert window.processing_panel.run_foundation.text() == "一键执行基础流程"
     assert window.processing_panel.run_node_analysis.text() == "分析候选节点"
     assert window.processing_panel.run_exports.text() == "导出 body cut"
+    assert window.processing_panel.resolution_combo.currentData() == "portrait_1080p"
+    assert window.processing_panel.resolution_combo.count() == 4
     assert window.thread_pool.maxThreadCount() >= 1
 
+    window.close()
+    app.processEvents()
+
+
+def test_output_resolution_selection_is_saved_to_project_config(tmp_path: Path) -> None:
+    app = get_app()
+    window = MainWindow(tmp_path)
+
+    window.processing_panel.select_resolution("landscape_2k")
+    app.processEvents()
+
+    config = window._load_config()
+    assert config["output_video"]["resolution_preset"] == "landscape_2k"
+    assert config["output_video"]["width"] == 2560
+    assert config["output_video"]["height"] == 1440
+    assert "横屏 2K" in window.log_panel.toPlainText()
+    window.close()
+    app.processEvents()
+
+
+def test_existing_custom_dimensions_select_matching_resolution_preset(
+    tmp_path: Path,
+) -> None:
+    app = get_app()
+    (tmp_path / "config.yaml").write_text(
+        "output_video:\n  width: 1920\n  height: 1080\n",
+        encoding="utf-8",
+    )
+
+    window = MainWindow(tmp_path)
+
+    assert window.processing_panel.resolution_combo.currentData() == "landscape_1080p"
     window.close()
     app.processEvents()
 

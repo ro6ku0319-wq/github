@@ -118,6 +118,25 @@ def test_create_full_concat_rejects_empty_video_list_clearly(tmp_path: Path) -> 
     assert runner.commands == []
 
 
+def test_create_full_concat_uses_landscape_output_resolution(tmp_path: Path) -> None:
+    runner = RecordingRunner()
+    processor = BaseProcessor(
+        runner,
+        OutputVideoSettings(2560, 1440, 30, "yuv420p"),
+    )
+
+    processor.create_full_concat(
+        [tmp_path / "input" / "part1.mp4"],
+        tmp_path / "full_concat.mp4",
+        tmp_path / "concat.txt",
+    )
+
+    filter_index = runner.commands[0].index("-vf") + 1
+    assert runner.commands[0][filter_index] == (
+        "scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440"
+    )
+
+
 def test_create_accelerated_base_creates_parent_and_uses_settings(
     tmp_path: Path,
 ) -> None:

@@ -19,6 +19,11 @@ from src.core.config_manager import ConfigManager
 from src.core.file_collector import collect_videos, write_order_file
 from src.core.logging_setup import ProjectLogger
 from src.core.node_analysis_pipeline import NodeAnalysisPipeline
+from src.core.output_resolution import (
+    DEFAULT_RESOLUTION_PRESET,
+    get_resolution_preset,
+    preset_key_for_size,
+)
 from src.core.pipeline import FoundationPipeline
 from src.core.review_export_pipeline import ReviewExportPipeline
 from src.gui.input_panel import InputPanel
@@ -52,6 +57,20 @@ class MainWindow(QMainWindow):
         self.input_panel = InputPanel()
         self.pages.addWidget(self.input_panel)
         self.processing_panel = ProcessingPanel()
+        output_video = _section(self._load_config(), "output_video")
+        width = int(output_video.get("width", 1080))
+        height = int(output_video.get("height", 1920))
+        current_preset = str(
+            output_video.get("resolution_preset", DEFAULT_RESOLUTION_PRESET)
+        )
+        try:
+            configured_preset = get_resolution_preset(current_preset)
+        except ValueError:
+            current_preset = preset_key_for_size(width, height)
+        else:
+            if (configured_preset.width, configured_preset.height) != (width, height):
+                current_preset = preset_key_for_size(width, height)
+        self.processing_panel.select_resolution(current_preset)
         self.pages.addWidget(self.processing_panel)
         self.node_review_panel = NodeReviewPanel()
         self.pages.addWidget(self.node_review_panel)
@@ -77,6 +96,9 @@ class MainWindow(QMainWindow):
         self.processing_panel.run_foundation.clicked.connect(self._run_foundation)
         self.processing_panel.run_node_analysis.clicked.connect(self._run_node_analysis)
         self.processing_panel.run_exports.clicked.connect(self._run_exports)
+        self.processing_panel.resolution_combo.currentIndexChanged.connect(
+            self._save_output_resolution_preset
+        )
         self.node_review_panel.refresh_requested.connect(self._load_cut_decision)
         self.node_review_panel.save_requested.connect(self._save_cut_decision)
 
@@ -98,6 +120,31 @@ class MainWindow(QMainWindow):
     def _output_dir(self, config: dict[str, Any]) -> Path:
         output_config = _section(config, "output")
         return self.project_dir / str(output_config.get("output_dir", "output"))
+
+    def _save_output_resolution_preset(self, _index: int) -> None:
+        preset_key = self.processing_panel.resolution_combo.currentData()
+        if not isinstance(preset_key, str):
+            preset_key = DEFAULT_RESOLUTION_PRESET
+        try:
+            preset = get_resolution_preset(preset_key)
+            manager = ConfigManager(self.project_dir)
+            config = manager.load()
+            output_video = _section(config, "output_video")
+            output_video.update(
+                {
+                    "resolution_preset": preset.key,
+                    "width": preset.width,
+                    "height": preset.height,
+                }
+            )
+            config["output_video"] = output_video
+            manager.save(config)
+        except Exception as error:
+            self.log_panel.append_log(f"保存输出分辨率失败: {error}")
+            return
+        self.log_panel.append_log(
+            f"已设置输出分辨率: {preset.label}；请重新执行基础流程"
+        )
 
     def _scan_inputs(self) -> None:
         try:

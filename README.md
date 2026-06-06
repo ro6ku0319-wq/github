@@ -35,11 +35,21 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 
 窗口包含左侧导航、素材管理页、基础处理页、节点审查页、底部进度条和实时日志。素材页可扫描 `input/`、调整顺序并保存 `input/order.txt`；基础处理页可一键生成基础输出、分析候选节点，并在人工确认后导出 body cut；节点审查页可读取和保存 `cut_decision.csv`。
 
+## 输出分辨率
+在 GUI 的基础处理页中，可选择以下输出分辨率：
+
+- 竖屏 1080p：`1080x1920`，默认值。
+- 横屏 1080p：`1920x1080`。
+- 横屏 2K：`2560x1440`。
+- 竖屏 2K：`1440x2560`。
+
+选择后会保存到项目 `config.yaml` 的 `output_video` 配置。需要重新执行“一键执行基础流程”，新的分辨率才会应用到 `full_concat.mp4` 和 `accelerated_base.mp4`；之后导出的节点预览与 45/60/120 秒 body cut 会继承该分辨率。重新执行会覆盖同名输出文件。
+
 ## 素材放置与排序
 将 `.mp4`、`.mov` 或 `.mkv` 文件放入 `input/`。如果需要固定顺序，在 `input/order.txt` 中每行写一个文件名。没有 `order.txt` 时，程序会优先使用自然文件名排序；文件名不可靠时会使用修改时间排序并记录 warning。
 
 ## 基础输出
-- `output/full_concat.mp4`：按最终顺序拼接的基础视频，会重新编码、归一化为 1080x1920 竖屏、强制目标 FPS，并去除音频。
+- `output/full_concat.mp4`：按最终顺序拼接的基础视频，会重新编码、归一化为 GUI 选择的目标分辨率、强制目标 FPS，并去除音频。
 - `output/accelerated_base.mp4`：在拼接结果上再次执行默认 8 倍加速的分析基础视频。
 - `output/input_order.txt`：最终顺序、自然文件名顺序、修改时间顺序、warning 和全局时间线。
 - `output/edit_report.json`：机器可读的视频元数据、全局时间线和 warning。
