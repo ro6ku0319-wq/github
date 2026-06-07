@@ -20,7 +20,7 @@ external_hook:
 base_processing:
   create_full_concat: true
   create_accelerated_base: true
-  acceleration_factor: 8.0
+  acceleration_factor: 5.0
   preserve_audio: false
 
 output_video:

@@ -154,6 +154,11 @@ def _write_report(
     segments: list[CutDecision],
     warnings: list[str],
 ) -> None:
+    metadata_by_node = {
+        normalise_node_id(item.get("node_id")): item
+        for item in payload.get("segments", [])
+        if isinstance(item, dict)
+    }
     lines = [
         "OB11 ZBrush Body Cut LLM 剪辑报告",
         "",
@@ -166,6 +171,9 @@ def _write_report(
         (
             f"- {item.node_id} {item.label}: "
             f"{format_timecode(item.start_global_time)} -> {format_timecode(item.end_global_time)}, "
+            f"hair={metadata_by_node.get(item.node_id, {}).get('hair_region', 'unknown')}/"
+            f"{metadata_by_node.get(item.node_id, {}).get('process_phase', 'unknown')}, "
+            f"importance={metadata_by_node.get(item.node_id, {}).get('importance', 'unknown')}, "
             f"speed={item.speed_multiplier:.3f}, reason={item.reason}"
         )
         for item in segments

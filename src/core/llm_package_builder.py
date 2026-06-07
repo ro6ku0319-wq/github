@@ -243,9 +243,38 @@ high_detail_contact_sheet.jpg、frame_manifest.json 和 operation_candidates.csv
 - 你不能知道真实 ZBrush 命令，不要编造真实笔刷名称。
 - 只根据画面判断视觉阶段和剪辑价值。
 - 只负责雕刻过程 body cut，不选择或生成 Blender hook。
-- body cut 第 0 秒直接进入雕刻过程，主发布版目标约 60 秒。
+- 输入分析基础视频默认已经是原始录屏的 5 倍速，不要把它误当作原始时间。
+- body cut 第 0 秒直接进入雕刻过程，主发布版必须压缩到约 60 秒。
 - 前 20 秒应有 2–3 个明显变化节点。
-- 发型、五官、配件、完成展示优先；后发、发尾、UI、重复调整低优先。
+
+## 头发区域识别
+
+先判断下列区域是否存在，并写入 hair_region_presence：
+- front_hair（前发）：额头前方的刘海、前侧发束。
+- sideburns（鬓发）：太阳穴、脸侧、耳侧的发束。
+- back_hair（后发）：贴近头部后侧的主要后发体块。
+- other_hair_blocks（其他发块）：主后发之外额外伸出的独立体块，例如马尾、
+  麻花辫、双马尾等；画面中没有时必须标记为 false。
+
+再识别每个存在区域的制作阶段：
+- blockout（大型）：建立轮廓、体积、位置和主要形体。
+- refinement（细化）：刻画发丝、沟槽、边缘、表面与清理细节。
+- other：不属于上述两类的过程。
+
+60 秒版本必须分别展示每个存在区域的 blockout 结果和 refinement 结果。
+用于满足该要求的片段必须设置 include_in_body_60s=true、
+shows_phase_result=true，并填写对应 hair_region 和 process_phase。
+
+## 取舍与时长
+
+- 先保证所有存在区域的大型和细化结果都被展示，再按 importance 从高到低选片段。
+- 前发与鬓发细化、造型辨识度高的其他发块、明显完成节点优先。
+- 重复修改、UI 操作、无结果的旋转缩放、长时间静止优先删除或压缩。
+- importance 使用 0–10，10 表示最重要。
+- 所有 include_in_body_60s=true 且未删除片段的 output_duration_seconds 总和应约为 60 秒。
+
+## 动作规则
+
 - edit_action 只能使用：keep、keep_compress、keep_trim_to_candidate_range、
   keep_speedup_inside_candidate_range、delete、use_as_transition、
   keep_until_action_completion、keep_as_body_cut_end_state。
@@ -266,6 +295,12 @@ high_detail_contact_sheet.jpg、frame_manifest.json 和 operation_candidates.csv
     "expected_duration_seconds": 2
   },
   "recommended_body_duration_seconds": 60,
+  "hair_region_presence": {
+    "front_hair": true,
+    "sideburns": true,
+    "back_hair": true,
+    "other_hair_blocks": false
+  },
   "first_20_seconds_body_plan": [],
   "segments": [],
   "cover_candidates": [],
@@ -277,5 +312,9 @@ high_detail_contact_sheet.jpg、frame_manifest.json 和 operation_candidates.csv
 每个 segments 项必须包含 node_id、label、label_cn、start_global_time、
 end_global_time、edit_action、include_in_body_45s、include_in_body_60s、
 include_in_body_120s、output_duration_seconds、speed_multiplier、rhythm_role、
-requires_final_position、result_visible_at_next_node 和 reason。
+requires_final_position、result_visible_at_next_node、hair_region、process_phase、
+shows_phase_result、importance 和 reason。
+
+hair_region 只能使用 front_hair、sideburns、back_hair、other_hair_blocks、
+not_hair。process_phase 只能使用 blockout、refinement、other。
 """

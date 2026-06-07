@@ -1,7 +1,7 @@
 # OB11 ZBrush Body Cut
 
 ## 当前能力
-本工具用于整理 ZBrush 自带缩时录制产生的多段视频。当前版本支持素材排序、ffprobe 元数据读取、全局时间线、FFmpeg 拼接、默认 8 倍加速、候选动作节点分析、人工修改 `cut_decision.csv`、45/60/120 秒 body cut 导出、手动 LLM 工作流、Blender Hook 自动拼接、预览、项目清单、中文 GUI、实时日志和共享调试 CLI。
+本工具用于整理 ZBrush 自带缩时录制产生的多段视频。当前版本支持素材排序、ffprobe 元数据读取、全局时间线、FFmpeg 拼接、默认 5 倍加速、候选动作节点分析、人工修改 `cut_decision.csv`、45/60/120 秒 body cut 导出、手动 LLM 工作流、Blender Hook 自动拼接、预览、项目清单、中文 GUI、实时日志和共享调试 CLI。
 
 ## 边界
 本工具只负责雕刻过程的 body cut 基础处理。标题、BGM、字幕、片尾、最终微调和发布包装仍在 DaVinci Resolve 中完成。
@@ -51,7 +51,7 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 
 ## 基础输出
 - `output/full_concat.mp4`：按最终顺序拼接的基础视频，会重新编码、归一化为 GUI 选择的目标分辨率、强制目标 FPS，并去除音频。
-- `output/accelerated_base.mp4`：在拼接结果上再次执行默认 8 倍加速的分析基础视频。
+- `output/accelerated_base.mp4`：在拼接结果上再次执行默认 5 倍加速的分析基础视频。
 - `output/input_order.txt`：最终顺序、自然文件名顺序、修改时间顺序、warning 和全局时间线。
 - `output/edit_report.json`：机器可读的视频元数据、全局时间线和 warning。
 - `output/edit_report.txt`：便于人工阅读的视频信息、时间线和 warning。
@@ -97,13 +97,13 @@ output/llm_review_package/
   frames/
 ```
 
-把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT，让其按照提示词输出严格 JSON 格式的 `edit_decision.json`。把 JSON 保存到：
+把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT，让其按照提示词输出严格 JSON 格式的 `edit_decision.json`。新版提示词会要求 ChatGPT 区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按 `importance` 取舍片段。把 JSON 保存到：
 
 ```text
 output/llm_result/edit_decision.json
 ```
 
-然后在 GUI 中点击“应用 LLM 剪辑说明书”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type` 和前 20 秒计划，再输出：
+然后在 GUI 中点击“应用 LLM 剪辑说明书”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长及头发区域/阶段覆盖，再输出：
 
 ```text
 output/llm_result/llm_guided_body_cut.mp4
@@ -141,7 +141,7 @@ LLM 只负责雕刻过程 body cut，不处理或生成 Blender Hook。
 阶段开关互斥。`--only-accelerate` 假设 `output/full_concat.mp4` 已经存在；节点分析、body cut 导出和 LLM 工作流需要先生成各自的上游输出。
 
 ## 当前版本范围
-当前版本已完成输入排序、基础拼接、8 倍加速、报告、候选节点分析、人工审查保存、三版 body cut、手动 LLM 工作流、预览、设置、项目清单和 Blender Hook 自动拼接。标题、BGM、字幕、片尾和最终发布包装仍由 DaVinci Resolve 完成。
+当前版本已完成输入排序、基础拼接、5 倍加速、报告、候选节点分析、人工审查保存、三版 body cut、手动 LLM 工作流、预览、设置、项目清单和 Blender Hook 自动拼接。标题、BGM、字幕、片尾和最终发布包装仍由 DaVinci Resolve 完成。
 
 ## 验收步骤
 1. 将 1 到 5 段真实 ZBrush 缩时视频放入 `input/`。

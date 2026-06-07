@@ -85,7 +85,7 @@ class FoundationPipeline:
 
     def _acceleration_factor(self) -> float:
         processing = _config_section(self.config, "base_processing")
-        return float(processing.get("acceleration_factor", 8.0))
+        return float(processing.get("acceleration_factor", 5.0))
 
     def _write_reports(
         self,

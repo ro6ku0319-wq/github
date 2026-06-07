@@ -35,6 +35,7 @@ def test_load_returns_defaults_when_project_config_is_missing(tmp_path: Path) ->
     defaults = yaml.safe_load(manager.default_path.read_text(encoding="utf-8"))
 
     assert manager.load() == defaults
+    assert manager.load()["base_processing"]["acceleration_factor"] == 5.0
 
 
 def test_save_and_load_round_trip_unicode_with_nested_custom_config_path(

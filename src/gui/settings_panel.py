@@ -103,7 +103,7 @@ class SettingsPanel(QWidget):
         fine = _section(config, "fine_cut")
         versions = _section(config, "cut_versions")
         priorities = _section(config, "operation_priority")
-        self.acceleration_spin.setValue(float(base.get("acceleration_factor", 8.0)))
+        self.acceleration_spin.setValue(float(base.get("acceleration_factor", 5.0)))
         self.width_spin.setValue(int(video.get("width", 1080)))
         self.height_spin.setValue(int(video.get("height", 1920)))
         self.fps_spin.setValue(int(video.get("fps", 30)))

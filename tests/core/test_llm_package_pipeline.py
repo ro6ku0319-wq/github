@@ -95,6 +95,19 @@ def test_llm_package_builder_creates_manual_review_package(tmp_path: Path) -> No
     assert "keep_speedup_inside_candidate_range" in prompt
     assert "edit_action 只能使用" in prompt
     assert "keep_as_body_cut_end_state" in prompt
+    for expected in (
+        "前发",
+        "鬓发",
+        "后发",
+        "其他发块",
+        "blockout",
+        "refinement",
+        "hair_region_presence",
+        "shows_phase_result",
+        "importance",
+        "60 秒",
+    ):
+        assert expected in prompt
     candidates = list(
         csv.DictReader((package / "operation_candidates.csv").open(encoding="utf-8"))
     )

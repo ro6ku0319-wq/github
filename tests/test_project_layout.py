@@ -52,7 +52,7 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         "横屏 2K",
         "竖屏 2K",
         "去除音频",
-        "8 倍加速",
+        "5 倍加速",
         "节点分析",
         "当前版本范围",
         "人工审查保存",

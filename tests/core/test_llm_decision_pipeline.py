@@ -32,6 +32,12 @@ def decision_payload() -> dict:
             "expected_duration_seconds": 2,
         },
         "recommended_body_duration_seconds": 60,
+        "hair_region_presence": {
+            "front_hair": True,
+            "sideburns": False,
+            "back_hair": False,
+            "other_hair_blocks": False,
+        },
         "first_20_seconds_body_plan": [
             {
                 "output_time_range": "00:00-00:10",
@@ -56,6 +62,10 @@ def decision_payload() -> dict:
                 "rhythm_role": "highlight",
                 "requires_final_position": False,
                 "result_visible_at_next_node": True,
+                "hair_region": "front_hair",
+                "process_phase": "blockout",
+                "shows_phase_result": True,
+                "importance": 10,
                 "reason": "可读变化",
             },
             {
@@ -73,6 +83,10 @@ def decision_payload() -> dict:
                 "rhythm_role": "transition",
                 "requires_final_position": False,
                 "result_visible_at_next_node": True,
+                "hair_region": "front_hair",
+                "process_phase": "refinement",
+                "shows_phase_result": True,
+                "importance": 9,
                 "reason": "短过渡",
             },
         ],
@@ -115,6 +129,57 @@ def test_validate_llm_decision_reports_non_fatal_warnings() -> None:
     assert "first_20_seconds_body_plan" in text
     assert "node_9999" in text
     assert "speed_multiplier" in text
+
+
+def test_validate_llm_decision_warns_when_present_hair_region_phase_is_missing() -> None:
+    payload = decision_payload()
+    payload["segments"][1]["process_phase"] = "blockout"
+
+    result = validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
+
+    assert any("front_hair/refinement" in warning for warning in result.warnings)
+
+
+def test_validate_llm_decision_does_not_require_absent_other_hair_blocks() -> None:
+    result = validate_llm_decision(
+        decision_payload(),
+        known_node_ids={"node_0001", "node_0002"},
+    )
+
+    assert not any("other_hair_blocks" in warning for warning in result.warnings)
+
+
+def test_validate_llm_decision_warns_when_target_is_not_60_seconds() -> None:
+    payload = decision_payload()
+    payload["recommended_body_duration_seconds"] = 45
+
+    result = validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
+
+    assert any("recommended_body_duration_seconds" in warning for warning in result.warnings)
+
+
+def test_validate_llm_decision_warns_when_body_60_total_exceeds_one_minute() -> None:
+    payload = decision_payload()
+    payload["segments"][0]["output_duration_seconds"] = 40
+    payload["segments"][1]["output_duration_seconds"] = 40
+
+    result = validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
+
+    assert any("body_60_total_duration" in warning for warning in result.warnings)
+
+
+def test_validate_llm_decision_warns_when_hair_coverage_metadata_is_missing() -> None:
+    payload = decision_payload()
+    del payload["hair_region_presence"]
+    for segment in payload["segments"]:
+        segment.pop("hair_region")
+        segment.pop("process_phase")
+        segment.pop("shows_phase_result")
+        segment.pop("importance")
+
+    result = validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
+
+    assert any("hair_region_presence" in warning for warning in result.warnings)
 
 
 def test_validate_llm_decision_rejects_string_boolean_fields() -> None:
@@ -208,6 +273,7 @@ def test_llm_decision_pipeline_renders_guided_cut_report_and_markers(
     assert "llm_guided_body_cut.mp4" in command
     report = (output / "llm_result" / "llm_edit_report.txt").read_text(encoding="utf-8")
     assert "node_0001" in report
+    assert "front_hair/blockout" in report
     assert "检查结尾节奏" in report
     markers = list(
         csv.DictReader(

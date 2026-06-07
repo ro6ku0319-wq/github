@@ -53,6 +53,15 @@ SEGMENT_BOOLEAN_FIELDS = {
     "result_visible_at_next_node",
 }
 
+HAIR_REGION_KEYS = (
+    "front_hair",
+    "sideburns",
+    "back_hair",
+    "other_hair_blocks",
+)
+ALLOWED_HAIR_REGIONS = {*HAIR_REGION_KEYS, "not_hair"}
+ALLOWED_PROCESS_PHASES = {"blockout", "refinement", "other"}
+
 ALLOWED_ACTIONS = {
     "keep",
     "keep_compress",
@@ -85,6 +94,14 @@ def validate_llm_decision(
         raise LlmDecisionValidationError("segments 必须是数组")
 
     warnings: list[str] = []
+    target_duration = _number(
+        payload.get("recommended_body_duration_seconds"),
+        "recommended_body_duration_seconds",
+    )
+    if target_duration != 60:
+        warnings.append(
+            "warning: recommended_body_duration_seconds 必须保持为 60"
+        )
     if payload.get("video_type") != "body_cut_only":
         warnings.append("warning: video_type 不是 body_cut_only")
     if not payload.get("first_20_seconds_body_plan"):
@@ -133,6 +150,9 @@ def validate_llm_decision(
             warnings.append(
                 f"warning: segments[{index}] edit_action=keep 但 output_duration_seconds=0"
             )
+    for index, segment in enumerate(segments):
+        _validate_optional_hair_fields(segment, index, warnings)
+
     for index, marker in enumerate(payload["davinci_markers"]):
         if not isinstance(marker, dict):
             raise LlmDecisionValidationError(f"davinci_markers[{index}] 必须是对象")
@@ -144,6 +164,8 @@ def validate_llm_decision(
                 raise LlmDecisionValidationError(
                     f"davinci_markers[{index}] 时间码格式错误: {error}"
                 ) from error
+    _append_body_60_duration_warning(segments, warnings)
+    _append_hair_coverage_warnings(payload, segments, warnings)
     return LlmDecisionValidationResult(payload=payload, warnings=warnings)
 
 
@@ -172,6 +194,87 @@ def _normalise_node_id(value: object) -> str:
     if text.isdigit():
         return f"node_{int(text):04d}"
     return text
+
+
+def _validate_optional_hair_fields(
+    segment: dict[str, Any],
+    index: int,
+    warnings: list[str],
+) -> None:
+    hair_region = segment.get("hair_region")
+    if hair_region is not None and hair_region not in ALLOWED_HAIR_REGIONS:
+        raise LlmDecisionValidationError(
+            f"segments[{index}].hair_region 无效: {hair_region}"
+        )
+    process_phase = segment.get("process_phase")
+    if process_phase is not None and process_phase not in ALLOWED_PROCESS_PHASES:
+        raise LlmDecisionValidationError(
+            f"segments[{index}].process_phase 无效: {process_phase}"
+        )
+    shows_phase_result = segment.get("shows_phase_result")
+    if shows_phase_result is not None and not isinstance(shows_phase_result, bool):
+        raise LlmDecisionValidationError(
+            f"segments[{index}].shows_phase_result 必须是 JSON 布尔值"
+        )
+    if "importance" in segment:
+        importance = _number(segment["importance"], f"segments[{index}].importance")
+        if importance < 0 or importance > 10:
+            warnings.append(f"warning: segments[{index}].importance 超出 0-10")
+
+
+def _append_body_60_duration_warning(
+    segments: list[dict[str, Any]],
+    warnings: list[str],
+) -> None:
+    total = sum(
+        _number(segment.get("output_duration_seconds", 0), "output_duration_seconds")
+        for segment in segments
+        if segment.get("include_in_body_60s") is True
+        and normalise_edit_action(segment.get("edit_action")) != "delete"
+    )
+    if total < 55 or total > 65:
+        warnings.append(
+            f"warning: body_60_total_duration={total:.3f}s，应压缩到约 60 秒"
+        )
+
+
+def _append_hair_coverage_warnings(
+    payload: dict[str, Any],
+    segments: list[dict[str, Any]],
+    warnings: list[str],
+) -> None:
+    presence = payload.get("hair_region_presence")
+    if presence is None:
+        warnings.append(
+            "warning: 缺少 hair_region_presence，无法校验四块头发的大型/细化结果覆盖"
+        )
+        return
+    if not isinstance(presence, dict):
+        raise LlmDecisionValidationError("hair_region_presence 必须是对象")
+
+    for region in HAIR_REGION_KEYS:
+        if region not in presence:
+            warnings.append(f"warning: hair_region_presence 缺少 {region}")
+            continue
+        if not isinstance(presence[region], bool):
+            raise LlmDecisionValidationError(
+                f"hair_region_presence.{region} 必须是 JSON 布尔值"
+            )
+        if not presence[region]:
+            continue
+        for phase in ("blockout", "refinement"):
+            covered = any(
+                segment.get("include_in_body_60s") is True
+                and normalise_edit_action(segment.get("edit_action")) != "delete"
+                and segment.get("hair_region") == region
+                and segment.get("process_phase") == phase
+                and segment.get("shows_phase_result") is True
+                for segment in segments
+            )
+            if not covered:
+                warnings.append(
+                    f"warning: body_60 缺少必须展示的 {region}/{phase} 结果"
+                )
 
 
 def _number(value: object, field: str) -> float:
