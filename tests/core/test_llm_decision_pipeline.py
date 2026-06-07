@@ -131,13 +131,12 @@ def test_validate_llm_decision_reports_non_fatal_warnings() -> None:
     assert "speed_multiplier" in text
 
 
-def test_validate_llm_decision_warns_when_present_hair_region_phase_is_missing() -> None:
+def test_validate_llm_decision_rejects_when_present_hair_region_phase_is_missing() -> None:
     payload = decision_payload()
     payload["segments"][1]["process_phase"] = "blockout"
 
-    result = validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
-
-    assert any("front_hair/refinement" in warning for warning in result.warnings)
+    with pytest.raises(LlmDecisionValidationError, match="front_hair/refinement"):
+        validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
 
 
 def test_validate_llm_decision_does_not_require_absent_other_hair_blocks() -> None:

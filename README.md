@@ -103,7 +103,7 @@ output/llm_review_package/
 output/llm_result/edit_decision.json
 ```
 
-然后在 GUI 中点击“应用 LLM 剪辑说明书”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长及头发区域/阶段覆盖，再输出：
+然后在 GUI 中点击“应用 LLM 剪辑说明书”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长及头发区域/阶段覆盖。新版决策文件若缺少任一存在发块的大型或细化结果，程序会拒绝应用，避免导出不完整视频；旧版决策文件没有头发覆盖字段时仍可兼容应用并给出警告。校验通过后输出：
 
 ```text
 output/llm_result/llm_guided_body_cut.mp4

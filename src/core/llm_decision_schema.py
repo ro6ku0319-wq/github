@@ -165,7 +165,7 @@ def validate_llm_decision(
                     f"davinci_markers[{index}] 时间码格式错误: {error}"
                 ) from error
     _append_body_60_duration_warning(segments, warnings)
-    _append_hair_coverage_warnings(payload, segments, warnings)
+    _validate_hair_coverage(payload, segments, warnings)
     return LlmDecisionValidationResult(payload=payload, warnings=warnings)
 
 
@@ -238,7 +238,7 @@ def _append_body_60_duration_warning(
         )
 
 
-def _append_hair_coverage_warnings(
+def _validate_hair_coverage(
     payload: dict[str, Any],
     segments: list[dict[str, Any]],
     warnings: list[str],
@@ -252,9 +252,10 @@ def _append_hair_coverage_warnings(
     if not isinstance(presence, dict):
         raise LlmDecisionValidationError("hair_region_presence 必须是对象")
 
+    missing_coverage: list[str] = []
     for region in HAIR_REGION_KEYS:
         if region not in presence:
-            warnings.append(f"warning: hair_region_presence 缺少 {region}")
+            missing_coverage.append(f"hair_region_presence.{region}")
             continue
         if not isinstance(presence[region], bool):
             raise LlmDecisionValidationError(
@@ -272,9 +273,12 @@ def _append_hair_coverage_warnings(
                 for segment in segments
             )
             if not covered:
-                warnings.append(
-                    f"warning: body_60 缺少必须展示的 {region}/{phase} 结果"
-                )
+                missing_coverage.append(f"{region}/{phase}")
+    if missing_coverage:
+        raise LlmDecisionValidationError(
+            "body_60 缺少必须展示的头发区域/阶段结果: "
+            + ", ".join(missing_coverage)
+        )
 
 
 def _number(value: object, field: str) -> float:
