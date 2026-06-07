@@ -19,12 +19,20 @@ class NodeCandidate:
     representative_sample_id: str
     representative_image_path: Path
     reason: str
+    action_start_frame: int
+    action_peak_frame: int
+    action_completion_frame: int
+    cut_after_frame: int
+    undo_redo_confidence: float
+    reverted_to_previous_state: bool
+    keep_successful_redo_only: bool
 
 
 def build_candidate_nodes(
     features: list[FrameFeature],
     min_node_duration_seconds: float,
     sample_interval_seconds: float,
+    completion_hold_frames: int = 3,
 ) -> list[NodeCandidate]:
     if not features:
         return []
@@ -44,6 +52,11 @@ def build_candidate_nodes(
             end = start + min_node_duration_seconds
         score = max(item.activity_score for item in group)
         confidence = max(0.05, min(0.99, score / max(threshold * 2.0, 0.001)))
+        reverted = any(item.reverted_to_previous_state for item in group)
+        undo_confidence = max(
+            (item.repetition_score for item in group if item.reverted_to_previous_state),
+            default=0.0,
+        )
         candidates.append(
             NodeCandidate(
                 node_id=f"node_{len(candidates) + 1:04d}",
@@ -56,6 +69,13 @@ def build_candidate_nodes(
                 representative_sample_id=representative.sample_id,
                 representative_image_path=representative.image_path,
                 reason=_reason_for(representative, threshold),
+                action_start_frame=group[0].frame_index,
+                action_peak_frame=representative.frame_index,
+                action_completion_frame=group[-1].frame_index,
+                cut_after_frame=group[-1].frame_index + max(0, completion_hold_frames),
+                undo_redo_confidence=round(undo_confidence, 3),
+                reverted_to_previous_state=reverted,
+                keep_successful_redo_only=reverted,
             )
         )
     return candidates
@@ -98,6 +118,8 @@ def _fallback_group(features: list[FrameFeature]) -> list[FrameFeature] | None:
 
 
 def _label_for(feature: FrameFeature) -> str:
+    if feature.reverted_to_previous_state:
+        return "undo_redo_candidate"
     if feature.black_frame:
         return "blank_or_black"
     if feature.edge_density >= 0.075 and feature.activity_score >= 0.08:

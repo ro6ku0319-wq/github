@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from pathlib import Path
 from typing import Sequence
 
 from src.core.config_manager import ConfigManager
+from src.core.hook_pipeline import HookPipeline
+from src.core.llm_decision_pipeline import LlmDecisionPipeline
+from src.core.llm_package_builder import LlmPackageBuilder
 from src.core.logging_setup import ProjectLogger
 from src.core.node_analysis_pipeline import NodeAnalysisPipeline
 from src.core.pipeline import FoundationPipeline
@@ -20,6 +24,13 @@ def build_parser() -> argparse.ArgumentParser:
     stages.add_argument("--only-accelerate", action="store_true")
     stages.add_argument("--analyze-nodes", action="store_true")
     stages.add_argument("--export-cuts", action="store_true")
+    stages.add_argument("--build-llm-package", action="store_true")
+    stages.add_argument("--apply-llm-decision", type=Path)
+    stages.add_argument("--export-with-hook", action="store_true")
+    stages.add_argument("--use-cut-decision", type=Path)
+    stages.add_argument("--generate-body-45", action="store_true")
+    stages.add_argument("--generate-body-60", action="store_true")
+    stages.add_argument("--generate-body-120", action="store_true")
     return parser
 
 
@@ -38,9 +49,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         or args.only_accelerate
         or args.analyze_nodes
         or args.export_cuts
+        or args.build_llm_package
+        or args.apply_llm_decision is not None
+        or args.export_with_hook
+        or args.use_cut_decision is not None
+        or args.generate_body_45
+        or args.generate_body_60
+        or args.generate_body_120
     ):
         raise SystemExit(
-            "请选择 --run-foundation、--analyze-nodes 或 --export-cuts。"
+            "请选择 --run-foundation、--analyze-nodes、--export-cuts、"
+            "--build-llm-package、--apply-llm-decision 或 --export-with-hook。"
             "日常建议使用 GUI: python app.py"
         )
 
@@ -52,6 +71,54 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.export_cuts:
         ReviewExportPipeline(args.project_dir, config, log=logger).run_all()
+        return 0
+    if args.use_cut_decision is not None:
+        output_config = config.get("output", {})
+        if not isinstance(output_config, dict):
+            output_config = {}
+        destination = args.project_dir / str(
+            output_config.get("output_dir", "output")
+        ) / "cut_decision.csv"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if args.use_cut_decision.resolve() != destination.resolve():
+            shutil.copy2(args.use_cut_decision, destination)
+        ReviewExportPipeline(args.project_dir, config, log=logger).run_all()
+        return 0
+    selected_version = next(
+        (
+            name
+            for enabled, name in (
+                (args.generate_body_45, "body_45s"),
+                (args.generate_body_60, "body_60s"),
+                (args.generate_body_120, "body_120s"),
+            )
+            if enabled
+        ),
+        None,
+    )
+    if selected_version is not None:
+        versions = config.get("cut_versions", {})
+        if not isinstance(versions, dict):
+            versions = {}
+        for name in ("body_45s", "body_60s", "body_120s"):
+            section = versions.get(name, {})
+            if not isinstance(section, dict):
+                section = {}
+            section["enabled"] = name == selected_version
+            versions[name] = section
+        config["cut_versions"] = versions
+        ReviewExportPipeline(args.project_dir, config, log=logger).run_all()
+        return 0
+    if args.build_llm_package:
+        LlmPackageBuilder(args.project_dir, config, log=logger).build()
+        return 0
+    if args.apply_llm_decision is not None:
+        LlmDecisionPipeline(args.project_dir, config, log=logger).apply(
+            args.apply_llm_decision
+        )
+        return 0
+    if args.export_with_hook:
+        HookPipeline(args.project_dir, config, log=logger).run_all()
         return 0
 
     pipeline = FoundationPipeline(args.project_dir, config, log=logger)

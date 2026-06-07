@@ -17,6 +17,34 @@ class OutputVideoSettings:
     height: int
     fps: int
     pixel_format: str
+    crop_mode: str = "center"
+    custom_crop_x: int = 0
+    custom_crop_y: int = 0
+    custom_crop_w: int = 0
+    custom_crop_h: int = 0
+
+
+def build_output_filter(settings: OutputVideoSettings) -> str:
+    width = settings.width
+    height = settings.height
+    if settings.crop_mode == "fit":
+        return (
+            f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
+        )
+    if settings.crop_mode == "custom":
+        crop_w = settings.custom_crop_w or width
+        crop_h = settings.custom_crop_h or height
+        if min(crop_w, crop_h) <= 0:
+            raise ValueError("自定义裁剪宽高必须大于 0")
+        return (
+            f"crop={crop_w}:{crop_h}:{settings.custom_crop_x}:{settings.custom_crop_y},"
+            f"scale={width}:{height}"
+        )
+    return (
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height}"
+    )
 
 
 class BaseProcessor:
@@ -25,12 +53,7 @@ class BaseProcessor:
         self.settings = settings
 
     def _output_filter(self) -> str:
-        width = self.settings.width
-        height = self.settings.height
-        return (
-            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height}"
-        )
+        return build_output_filter(self.settings)
 
     def create_full_concat(
         self,

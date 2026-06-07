@@ -20,6 +20,13 @@ CUT_DECISION_FIELDS = [
     "speed_multiplier",
     "reason",
     "human_note",
+    "action_start_frame",
+    "action_peak_frame",
+    "action_completion_frame",
+    "cut_after_frame",
+    "undo_redo_confidence",
+    "reverted_to_previous_state",
+    "keep_successful_redo_only",
 ]
 
 
@@ -33,6 +40,16 @@ OPERATION_SCORE_FIELDS = [
     "region_change_score",
     "activity_score",
     "black_frame",
+    "global_diff_score",
+    "center_diff_score",
+    "ui_diff_score",
+    "local_change_density",
+    "brightness_score",
+    "detail_score",
+    "stability_after_change",
+    "novelty_score",
+    "repetition_score",
+    "reverted_to_previous_state",
 ]
 
 
@@ -59,6 +76,17 @@ def build_cut_decision_rows(
                 "speed_multiplier": "1.000",
                 "reason": candidate.reason,
                 "human_note": "",
+                "action_start_frame": str(candidate.action_start_frame),
+                "action_peak_frame": str(candidate.action_peak_frame),
+                "action_completion_frame": str(candidate.action_completion_frame),
+                "cut_after_frame": str(candidate.cut_after_frame),
+                "undo_redo_confidence": f"{candidate.undo_redo_confidence:.3f}",
+                "reverted_to_previous_state": _bool_text(
+                    candidate.reverted_to_previous_state
+                ),
+                "keep_successful_redo_only": _bool_text(
+                    candidate.keep_successful_redo_only
+                ),
             }
         )
     return rows

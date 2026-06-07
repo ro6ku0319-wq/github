@@ -137,6 +137,31 @@ def test_create_full_concat_uses_landscape_output_resolution(tmp_path: Path) -> 
     )
 
 
+def test_output_filter_supports_fit_and_custom_crop_modes() -> None:
+    fit = BaseProcessor(
+        RecordingRunner(),
+        OutputVideoSettings(1920, 1080, 30, "yuv420p", crop_mode="fit"),
+    )
+    custom = BaseProcessor(
+        RecordingRunner(),
+        OutputVideoSettings(
+            1920,
+            1080,
+            30,
+            "yuv420p",
+            crop_mode="custom",
+            custom_crop_x=10,
+            custom_crop_y=20,
+            custom_crop_w=1000,
+            custom_crop_h=1200,
+        ),
+    )
+
+    assert "force_original_aspect_ratio=decrease" in fit._output_filter()
+    assert "pad=1920:1080" in fit._output_filter()
+    assert custom._output_filter() == "crop=1000:1200:10:20,scale=1920:1080"
+
+
 def test_create_accelerated_base_creates_parent_and_uses_settings(
     tmp_path: Path,
 ) -> None:

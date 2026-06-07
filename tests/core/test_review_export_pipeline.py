@@ -88,6 +88,7 @@ def test_review_export_pipeline_creates_body_cuts_preview_and_markers(
     ]
     assert progress[-1][0] == 100
     assert any("导出完成" in message for message in logs)
+    assert (output_dir / "project_manifest.json").exists()
 
 
 def test_review_export_requires_cut_decision_csv(tmp_path: Path) -> None:

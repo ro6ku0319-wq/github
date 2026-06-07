@@ -254,6 +254,7 @@ def test_run_all_validates_tools_writes_reports_runs_media_and_reports_progress(
     assert (output_dir / "input_order.txt").exists()
     assert (output_dir / "edit_report.json").exists()
     assert (output_dir / "edit_report.txt").exists()
+    assert (output_dir / "project_manifest.json").exists()
     assert processor.calls == [
         (
             "concat",
@@ -360,3 +361,26 @@ def test_pipeline_builds_processor_with_configured_output_resolution(
 
     assert pipeline.processor.settings.width == 2560
     assert pipeline.processor.settings.height == 1440
+
+
+def test_pipeline_builds_processor_with_configured_crop_mode(tmp_path: Path) -> None:
+    pipeline = FoundationPipeline(
+        tmp_path,
+        {
+            "output_video": {
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "pixel_format": "yuv420p",
+                "crop_mode": "custom",
+                "custom_crop_x": 10,
+                "custom_crop_y": 20,
+                "custom_crop_w": 1000,
+                "custom_crop_h": 1200,
+            }
+        },
+        tool_validator=lambda: None,
+    )
+
+    assert pipeline.processor.settings.crop_mode == "custom"
+    assert pipeline.processor.settings.custom_crop_x == 10

@@ -13,6 +13,7 @@ from src.core.report_writer import (
     write_input_order,
     write_json,
 )
+from src.core.project_manifest import ProjectManifest
 from src.core.timeline_mapper import TimelineRange, build_timeline
 from src.core.video_probe import VideoMetadata, probe_video
 
@@ -43,6 +44,11 @@ class FoundationPipeline:
             height=int(output_video.get("height", 1920)),
             fps=int(output_video.get("fps", 30)),
             pixel_format=str(output_video.get("pixel_format", "yuv420p")),
+            crop_mode=str(output_video.get("crop_mode", "center")),
+            custom_crop_x=int(output_video.get("custom_crop_x", 0)),
+            custom_crop_y=int(output_video.get("custom_crop_y", 0)),
+            custom_crop_w=int(output_video.get("custom_crop_w", 0)),
+            custom_crop_h=int(output_video.get("custom_crop_h", 0)),
         )
         self.processor = processor or BaseProcessor(FFmpegRunner(self.log), settings)
         self.tool_validator = tool_validator or FFmpegRunner.validate_tools
@@ -136,4 +142,8 @@ class FoundationPipeline:
         self._update(70, "生成 accelerated_base.mp4")
         self.create_accelerated_base()
         self.log(f"输出: {accelerated_base}")
+        ProjectManifest(self.project_dir, self.config).refresh(
+            source_files=[str(item.path) for item in collection.files],
+            input_order=[item.path.name for item in collection.files],
+        )
         self._update(100, "基础处理完成")

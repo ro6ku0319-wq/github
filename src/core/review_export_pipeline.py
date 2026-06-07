@@ -13,6 +13,7 @@ from src.core.cut_decision_applier import (
 )
 from src.core.davinci_marker_exporter import write_davinci_markers_csv
 from src.core.ffmpeg_runner import FFmpegRunner
+from src.core.project_manifest import ProjectManifest
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,7 @@ class ReviewExportPipeline:
         write_davinci_markers_csv(marker_output, decisions)
         self.log(f"输出: {marker_output}")
 
+        ProjectManifest(self.project_dir, self.config).refresh()
         self._update(100, "导出完成")
         return ReviewExportResult(
             body_cut_outputs=outputs,

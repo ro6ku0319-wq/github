@@ -1,12 +1,12 @@
 # OB11 ZBrush Body Cut
 
 ## 当前能力
-本工具用于整理 ZBrush 自带缩时录制产生的多段视频。当前可运行切片支持素材排序、ffprobe 元数据读取、全局时间线、FFmpeg 拼接、默认 8 倍加速基础视频、候选动作节点分析、人工修改 `cut_decision.csv`、45/60/120 秒 body cut 导出、中文 GUI、实时日志和共享调试 CLI。
+本工具用于整理 ZBrush 自带缩时录制产生的多段视频。当前版本支持素材排序、ffprobe 元数据读取、全局时间线、FFmpeg 拼接、默认 8 倍加速、候选动作节点分析、人工修改 `cut_decision.csv`、45/60/120 秒 body cut 导出、手动 LLM 工作流、Blender Hook 自动拼接、预览、项目清单、中文 GUI、实时日志和共享调试 CLI。
 
 ## 边界
 本工具只负责雕刻过程的 body cut 基础处理。标题、BGM、字幕、片尾、最终微调和发布包装仍在 DaVinci Resolve 中完成。
 
-Blender Hook 是后续完整版本的一部分：用户先在 Blender 中制作开场 Hook，本项目后续会支持自动拼接 Hook 与 body cut。当前基础切片会保留 `input/hook/` 目录和配置字段，便于后续接入。
+Blender Hook 由用户在 Blender 中单独制作。本工具不会生成 Hook，但可以将 Hook 规范化到当前输出分辨率和 FPS，并自动拼接到现有 body cut 前面。
 
 ## Windows 安装
 1. 安装 Python 3.10 或更高版本。
@@ -31,9 +31,10 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 
 ```powershell
 .\.venv\Scripts\python.exe app.py
+.\.venv\Scripts\python.exe app.py --project-dir C:\你的项目目录
 ```
 
-窗口包含左侧导航、素材管理页、基础处理页、节点审查页、底部进度条和实时日志。素材页可扫描 `input/`、调整顺序并保存 `input/order.txt`；基础处理页可一键生成基础输出、分析候选节点，并在人工确认后导出 body cut；节点审查页可读取和保存 `cut_decision.csv`。
+窗口包含 10 个页面：项目设置、素材管理、基础处理、节点审查、预览、LLM 证据包、应用 LLM 决策、Blender Hook、通用设置和日志。项目设置页可切换项目并选择素材/输出目录；节点审查页支持按标签/保留状态筛选，并可按置信度或时间排序；预览页可显示联系图和活动曲线，并调用系统播放器打开生成的视频；通用设置页可修改宽高、裁剪模式、加速、FPS、采样、边界、目标时长和操作优先级。
 
 ## 输出分辨率
 在 GUI 的基础处理页中，可选择以下输出分辨率：
@@ -54,6 +55,7 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 - `output/input_order.txt`：最终顺序、自然文件名顺序、修改时间顺序、warning 和全局时间线。
 - `output/edit_report.json`：机器可读的视频元数据、全局时间线和 warning。
 - `output/edit_report.txt`：便于人工阅读的视频信息、时间线和 warning。
+- `output/project_manifest.json`：项目名称、输入、时间线、输出路径、已选/删除节点和 warning 的持续更新清单。
 - `logs/bodycut-*.log`：FFmpeg 命令、处理步骤、warning 和错误。
 
 原始素材不会被覆盖。
@@ -68,6 +70,8 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 - `output/node_contact_sheet.jpg`：候选节点代表帧联系图。
 - `output/activity_curve.png`：整段视频的活动强度曲线。
 
+`operation_score_table.csv` 还包含全局、中心、UI 区域和局部变化密度、亮度、细节、稳定度、新颖度、重复度及视觉回退标记。开启 `fine_cut.enabled` 后，程序会围绕粗候选节点按 `fine_sample_every_n_frames` 逐帧搜索边界，并应用搜索窗口和完成保持帧数。`cut_decision.csv` 包含动作开始、峰值、完成和建议切点帧，以及保守的 A→B→A 撤销/重做候选字段。此标记只用于人工审查，不会直接自动删除片段。
+
 ## Body Cut 导出
 在节点审查页确认或修改 `cut_decision.csv` 后，回到基础处理页点击“导出 body cut”。程序会从同一个 `cut_decision.csv` 读取 `keep_in_body_45s`、`keep_in_body_60s`、`keep_in_body_120s` 三列，调用 FFmpeg 生成：
 
@@ -79,6 +83,43 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 
 如果某个版本没有勾选任何节点，程序会跳过该版本并在日志中说明。标题、BGM、字幕、片尾和最终发布包装仍在 DaVinci Resolve 中完成。
 
+## 手动 LLM 工作流
+第一版不会自动调用 OpenAI API。完成节点分析后，在 GUI 的“LLM 工作流”页点击“生成 LLM 视觉证据包”，程序会生成：
+
+```text
+output/llm_review_package/
+  overview_contact_sheet.jpg
+  node_contact_sheet_01.jpg
+  high_detail_contact_sheet.jpg
+  frame_manifest.json
+  operation_candidates.csv
+  llm_prompt.md
+  frames/
+```
+
+把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT，让其按照提示词输出严格 JSON 格式的 `edit_decision.json`。把 JSON 保存到：
+
+```text
+output/llm_result/edit_decision.json
+```
+
+然后在 GUI 中点击“应用 LLM 剪辑说明书”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type` 和前 20 秒计划，再输出：
+
+```text
+output/llm_result/llm_guided_body_cut.mp4
+output/llm_result/llm_edit_report.txt
+output/llm_result/davinci_markers.csv
+```
+
+LLM 只负责雕刻过程 body cut，不处理或生成 Blender Hook。
+
+## Blender Hook
+1. 将 Blender 制作的 Hook 放入 `input/hook/`，或在 GUI 的“Blender Hook”页选择任意视频文件。
+2. 启用 Hook 和自动拼接，设置预期时长并保存。
+3. 先生成至少一个 body cut，再点击“自动拼接 Hook 与 body cut”。
+
+程序会按预期 Hook 时长截取并生成 `output/normalized_hook.mp4`，再重新编码拼接，按已有版本输出 `final_with_hook_45s.mp4`、`final_with_hook_60s.mp4`、`final_with_hook_120s.mp4`。
+
 ## 调试 CLI
 日常建议使用 GUI。高级调试可执行：
 
@@ -88,12 +129,19 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 .\.venv\Scripts\python.exe make_timelapse.py --only-accelerate
 .\.venv\Scripts\python.exe make_timelapse.py --analyze-nodes
 .\.venv\Scripts\python.exe make_timelapse.py --export-cuts
+.\.venv\Scripts\python.exe make_timelapse.py --build-llm-package
+.\.venv\Scripts\python.exe make_timelapse.py --apply-llm-decision output/llm_result/edit_decision.json
+.\.venv\Scripts\python.exe make_timelapse.py --use-cut-decision output/manual_cut_decision.csv
+.\.venv\Scripts\python.exe make_timelapse.py --generate-body-45
+.\.venv\Scripts\python.exe make_timelapse.py --generate-body-60
+.\.venv\Scripts\python.exe make_timelapse.py --generate-body-120
+.\.venv\Scripts\python.exe make_timelapse.py --export-with-hook
 ```
 
-五个阶段开关互斥。`--only-accelerate` 假设 `output/full_concat.mp4` 已经存在；`--analyze-nodes` 假设 `output/accelerated_base.mp4` 已经存在；`--export-cuts` 假设 `output/cut_decision.csv` 已经存在。
+阶段开关互斥。`--only-accelerate` 假设 `output/full_concat.mp4` 已经存在；节点分析、body cut 导出和 LLM 工作流需要先生成各自的上游输出。
 
-## 后续切片
-后续版本会继续加入更完整的预览页、LLM 证据包和 Blender Hook 自动拼接。当前版本先完成稳定的输入排序、基础拼接、8 倍加速、报告、候选节点分析、人工审查保存、三版 body cut 导出和 GUI 操作底座。
+## 当前版本范围
+当前版本已完成输入排序、基础拼接、8 倍加速、报告、候选节点分析、人工审查保存、三版 body cut、手动 LLM 工作流、预览、设置、项目清单和 Blender Hook 自动拼接。标题、BGM、字幕、片尾和最终发布包装仍由 DaVinci Resolve 完成。
 
 ## 验收步骤
 1. 将 1 到 5 段真实 ZBrush 缩时视频放入 `input/`。
@@ -104,6 +152,8 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 6. 在基础处理页点击“分析候选节点”，确认生成 `cut_decision.csv`、`node_contact_sheet.jpg` 和 `activity_curve.png`。
 7. 在节点审查页修改并保存 `cut_decision.csv`。
 8. 在基础处理页点击“导出 body cut”，确认生成 `body_cut_45s.mp4`、`body_cut_60s.mp4`、`body_cut_120s.mp4`、`auto_node_preview.mp4` 和 `davinci_markers.csv`。
+9. 在 LLM 工作流页生成证据包，手动取得 `edit_decision.json` 后应用，确认生成 `llm_guided_body_cut.mp4`、`llm_edit_report.txt` 和 LLM markers。
+10. 在预览页检查联系图、活动曲线和视频；需要 Hook 时在 Blender Hook 页完成自动拼接。
 
 ## 测试
 核心、CLI 和 GUI 离屏测试：
