@@ -10,7 +10,11 @@ from typing import Any
 
 from src.core.cut_decision_applier import CommandRunner, CutDecision, CutDecisionApplier
 from src.core.ffmpeg_runner import FFmpegRunner
-from src.core.llm_decision_schema import normalise_node_id, validate_llm_decision
+from src.core.llm_decision_schema import (
+    normalise_edit_action,
+    normalise_node_id,
+    validate_llm_decision,
+)
 from src.core.timecode import format_timecode, parse_timecode
 from src.core.project_manifest import ProjectManifest
 
@@ -114,7 +118,7 @@ class LlmDecisionPipeline:
 def _segments_to_decisions(segments: list[dict[str, Any]]) -> list[CutDecision]:
     decisions: list[CutDecision] = []
     for segment in segments:
-        action = str(segment["edit_action"])
+        action = normalise_edit_action(segment["edit_action"])
         if action == "delete":
             continue
         start = parse_timecode(segment["start_global_time"])

@@ -6,8 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from src.core.llm_decision_pipeline import LlmDecisionPipeline
-from src.core.llm_decision_schema import LlmDecisionValidationError, validate_llm_decision
+from src.core.llm_decision_pipeline import LlmDecisionPipeline, _segments_to_decisions
+from src.core.llm_decision_schema import (
+    LlmDecisionValidationError,
+    normalise_edit_action,
+    validate_llm_decision,
+)
 
 
 class FakeRunner:
@@ -131,6 +135,37 @@ def test_validate_llm_decision_accepts_keep_trim_to_candidate_range() -> None:
     )
 
     assert result.payload["segments"][0]["edit_action"] == "keep_trim_to_candidate_range"
+
+
+def test_keep_speedup_inside_candidate_range_maps_to_compressed_keep() -> None:
+    payload = decision_payload()
+    segment = payload["segments"][0]
+    segment["edit_action"] = "keep_speedup_inside_candidate_range"
+    segment["output_duration_seconds"] = 2
+
+    result = validate_llm_decision(
+        payload,
+        known_node_ids={"node_0001", "node_0002"},
+    )
+    decisions = _segments_to_decisions(result.payload["segments"])
+
+    assert normalise_edit_action("keep_speedup_inside_candidate_range") == "keep_compress"
+    assert decisions[0].speed_multiplier == 2.0
+
+
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [
+        ("keep_trim_to_candidate_range", "keep"),
+        ("keep_candidate_range", "keep"),
+        ("trim_to_candidate_range", "keep"),
+        ("keep_speedup_inside_candidate_range", "keep_compress"),
+        ("speedup_inside_candidate_range", "keep_compress"),
+        ("keep_as_transition", "use_as_transition"),
+    ],
+)
+def test_llm_action_aliases_are_normalised(alias: str, canonical: str) -> None:
+    assert normalise_edit_action(alias) == canonical
 
 
 def test_llm_decision_pipeline_renders_guided_cut_report_and_markers(

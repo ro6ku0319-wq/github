@@ -59,7 +59,15 @@ ALLOWED_ACTIONS = {
     "delete",
     "use_as_transition",
     "keep_until_action_completion",
-    "keep_trim_to_candidate_range",
+}
+
+ACTION_ALIASES = {
+    "keep_trim_to_candidate_range": "keep",
+    "keep_candidate_range": "keep",
+    "trim_to_candidate_range": "keep",
+    "keep_speedup_inside_candidate_range": "keep_compress",
+    "speedup_inside_candidate_range": "keep_compress",
+    "keep_as_transition": "use_as_transition",
 }
 
 
@@ -92,10 +100,10 @@ def validate_llm_decision(
             raise LlmDecisionValidationError(
                 f"segments[{index}] 缺少字段: " + ", ".join(missing_segment)
             )
-        action = str(segment["edit_action"])
+        action = normalise_edit_action(segment["edit_action"])
         if action not in ALLOWED_ACTIONS:
             raise LlmDecisionValidationError(
-                f"segments[{index}] edit_action 无效: {action}"
+                f"segments[{index}] edit_action 无效: {segment['edit_action']}"
             )
         try:
             start = parse_timecode(segment["start_global_time"])
@@ -141,6 +149,11 @@ def validate_llm_decision(
 
 def normalise_node_id(value: object) -> str:
     return _normalise_node_id(value)
+
+
+def normalise_edit_action(value: object) -> str:
+    action = str(value).strip()
+    return ACTION_ALIASES.get(action, action)
 
 
 def _normalise_node_id(value: object) -> str:

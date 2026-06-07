@@ -92,6 +92,8 @@ def test_llm_package_builder_creates_manual_review_package(tmp_path: Path) -> No
     prompt = (package / "llm_prompt.md").read_text(encoding="utf-8")
     assert '"video_type": "body_cut_only"' in prompt
     assert "不要编造真实笔刷名称" in prompt
+    assert "keep_speedup_inside_candidate_range" in prompt
+    assert "edit_action 只能使用" in prompt
     candidates = list(
         csv.DictReader((package / "operation_candidates.csv").open(encoding="utf-8"))
     )

@@ -246,6 +246,11 @@ high_detail_contact_sheet.jpg、frame_manifest.json 和 operation_candidates.csv
 - body cut 第 0 秒直接进入雕刻过程，主发布版目标约 60 秒。
 - 前 20 秒应有 2–3 个明显变化节点。
 - 发型、五官、配件、完成展示优先；后发、发尾、UI、重复调整低优先。
+- edit_action 只能使用：keep、keep_compress、keep_trim_to_candidate_range、
+  keep_speedup_inside_candidate_range、delete、use_as_transition、
+  keep_until_action_completion。
+- keep_trim_to_candidate_range 表示保留候选范围；keep_speedup_inside_candidate_range
+  表示保留候选范围并按照 output_duration_seconds 压缩加速。
 
 必须使用以下顶层结构：
 
