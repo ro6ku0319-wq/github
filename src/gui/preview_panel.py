@@ -88,8 +88,8 @@ class PreviewPanel(QWidget):
                     pixmap.scaled(
                         600,
                         500,
-                        aspectMode=Qt.AspectRatioMode.KeepAspectRatio,
-                        transformMode=Qt.TransformationMode.SmoothTransformation,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
                     )
                 )
                 available.append(name)

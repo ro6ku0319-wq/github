@@ -121,6 +121,18 @@ def test_validate_llm_decision_rejects_string_boolean_fields() -> None:
         validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
 
 
+def test_validate_llm_decision_accepts_keep_trim_to_candidate_range() -> None:
+    payload = decision_payload()
+    payload["segments"][0]["edit_action"] = "keep_trim_to_candidate_range"
+
+    result = validate_llm_decision(
+        payload,
+        known_node_ids={"node_0001", "node_0002"},
+    )
+
+    assert result.payload["segments"][0]["edit_action"] == "keep_trim_to_candidate_range"
+
+
 def test_llm_decision_pipeline_renders_guided_cut_report_and_markers(
     tmp_path: Path,
 ) -> None:

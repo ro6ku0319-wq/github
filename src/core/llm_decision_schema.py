@@ -59,6 +59,7 @@ ALLOWED_ACTIONS = {
     "delete",
     "use_as_transition",
     "keep_until_action_completion",
+    "keep_trim_to_candidate_range",
 }
 
 

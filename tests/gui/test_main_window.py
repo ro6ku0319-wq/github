@@ -120,6 +120,28 @@ def test_preview_panel_refreshes_available_images_and_videos(tmp_path: Path) -> 
     app.processEvents()
 
 
+def test_preview_panel_refreshes_valid_images_without_qpixmap_keyword_error(
+    tmp_path: Path,
+) -> None:
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    app = get_app()
+    output = tmp_path / "output"
+    output.mkdir()
+    assert cv2.imwrite(
+        str(output / "node_contact_sheet.jpg"),
+        np.full((20, 30, 3), 128, dtype=np.uint8),
+    )
+    window = MainWindow(tmp_path)
+
+    window._refresh_preview()
+
+    assert "刷新预览失败" not in window.log_panel.toPlainText()
+    assert window.preview_panel.image_labels["node_contact_sheet.jpg"].pixmap() is not None
+    window.close()
+    app.processEvents()
+
+
 def test_general_settings_are_saved_to_project_config(tmp_path: Path) -> None:
     app = get_app()
     window = MainWindow(tmp_path)
