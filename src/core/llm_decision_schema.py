@@ -152,8 +152,17 @@ def normalise_node_id(value: object) -> str:
 
 
 def normalise_edit_action(value: object) -> str:
-    action = str(value).strip()
-    return ACTION_ALIASES.get(action, action)
+    action = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    explicit = ACTION_ALIASES.get(action)
+    if explicit is not None:
+        return explicit
+    if action.startswith("keep_"):
+        if "transition" in action:
+            return "use_as_transition"
+        if "speedup" in action or "compress" in action:
+            return "keep_compress"
+        return "keep"
+    return action
 
 
 def _normalise_node_id(value: object) -> str:

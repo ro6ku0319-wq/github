@@ -162,10 +162,22 @@ def test_keep_speedup_inside_candidate_range_maps_to_compressed_keep() -> None:
         ("keep_speedup_inside_candidate_range", "keep_compress"),
         ("speedup_inside_candidate_range", "keep_compress"),
         ("keep_as_transition", "use_as_transition"),
+        ("keep_as_body_cut_end_state", "keep"),
+        ("keep_final_display", "keep"),
+        ("keep_speedup_final_display", "keep_compress"),
+        ("keep_short_transition", "use_as_transition"),
     ],
 )
 def test_llm_action_aliases_are_normalised(alias: str, canonical: str) -> None:
     assert normalise_edit_action(alias) == canonical
+
+
+def test_validate_llm_decision_still_rejects_completely_unknown_action() -> None:
+    payload = decision_payload()
+    payload["segments"][0]["edit_action"] = "invent_something"
+
+    with pytest.raises(LlmDecisionValidationError, match="invent_something"):
+        validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
 
 
 def test_llm_decision_pipeline_renders_guided_cut_report_and_markers(

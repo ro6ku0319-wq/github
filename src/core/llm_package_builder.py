@@ -248,9 +248,11 @@ high_detail_contact_sheet.jpg、frame_manifest.json 和 operation_candidates.csv
 - 发型、五官、配件、完成展示优先；后发、发尾、UI、重复调整低优先。
 - edit_action 只能使用：keep、keep_compress、keep_trim_to_candidate_range、
   keep_speedup_inside_candidate_range、delete、use_as_transition、
-  keep_until_action_completion。
+  keep_until_action_completion、keep_as_body_cut_end_state。
 - keep_trim_to_candidate_range 表示保留候选范围；keep_speedup_inside_candidate_range
   表示保留候选范围并按照 output_duration_seconds 压缩加速。
+- 任何其他 keep_* 动作会按保留处理；名称包含 speedup/compress 时按压缩保留，
+  名称包含 transition 时按过渡处理。不要创造不以 keep_ 开头的未知动作。
 
 必须使用以下顶层结构：
 
