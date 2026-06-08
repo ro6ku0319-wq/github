@@ -1,0 +1,92 @@
+project:
+  name: "OB11_ZBrush_BodyCut"
+  platform: "xiaohongshu"
+
+input:
+  input_dir: "input"
+  order_file: "input/order.txt"
+
+output:
+  output_dir: "output"
+  logs_dir: "logs"
+
+external_hook:
+  enabled: false
+  hook_video_path: ""
+  expected_duration_seconds: 2.0
+  generated_by: "Blender"
+  concat_with_body_cut: true
+
+base_processing:
+  create_full_concat: true
+  create_accelerated_base: true
+  acceleration_factor: 5.0
+  preserve_audio: false
+
+output_video:
+  resolution_preset: "portrait_1080p"
+  width: 1080
+  height: 1920
+  fps: 30
+  codec: "h264"
+  pixel_format: "yuv420p"
+  crop_mode: "center"
+  custom_crop_x: 0
+  custom_crop_y: 0
+  custom_crop_w: 1080
+  custom_crop_h: 1920
+
+fine_cut:
+  enabled: true
+  allow_subsecond_cuts: true
+  timecode_precision: "frame"
+  coarse_sample_interval_seconds: 0.4
+  fine_sample_every_n_frames: 2
+  boundary_search_window_seconds: 1.0
+  completion_hold_frames: 3
+  min_node_duration_seconds: 0.25
+
+body_cut_rules:
+  no_intro_hook_in_body_cut: true
+  start_with_sculpting_process: true
+  first_20s_min_change_nodes: 3
+  require_visual_highlight: true
+  allow_final_display_at_end: true
+  final_display_at_end_seconds: 3
+
+cut_versions:
+  body_45s:
+    enabled: true
+    target_duration_seconds: 45
+  body_60s:
+    enabled: true
+    target_duration_seconds: 60
+  body_120s:
+    enabled: true
+    target_duration_seconds: 120
+
+operation_priority:
+  final_display: 6
+  front_hair_strand_pull: 9
+  hair_detail: 9
+  face_features: 9
+  accessory_detail: 8
+  rotate_inspect: 3
+  zoom_pan_view: 1
+  back_hair: 3
+  hair_tail: 2
+  ui_tool_switch: 1
+  static_low_value: 0
+  undo_redo_candidate: 0
+  blank_or_black: 0
+
+llm_package:
+  enabled: true
+  overview_sample_interval_seconds: 2
+  high_detail_rear_ratio: 0.4
+  max_contact_sheet_items_per_page: 60
+
+gui:
+  theme: "system"
+  remember_last_project: true
+  open_output_after_export: true
