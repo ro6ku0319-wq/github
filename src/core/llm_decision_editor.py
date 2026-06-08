@@ -15,9 +15,6 @@ EDITABLE_FIELDS = [
     "output_duration_seconds",
     "hair_region",
     "process_phase",
-    "symmetry_group",
-    "symmetry_side",
-    "symmetry_keep_role",
     "importance",
     "reason",
 ]

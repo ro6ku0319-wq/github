@@ -65,17 +65,13 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         "手动 LLM/Codex 工作流",
         "bodycut-editor",
         "Codex 选片学习偏好",
-        "symmetry_group",
-        "左右对称",
         "Blender Hook 自动拼接",
     ):
         assert expected in readme
 
     skill = root / ".agents" / "skills" / "bodycut-editor" / "SKILL.md"
     assert skill.exists()
-    skill_text = skill.read_text(encoding="utf-8")
-    assert "edit_decision.json" in skill_text
-    assert "symmetry_keep_role" in skill_text
+    assert "edit_decision.json" in skill.read_text(encoding="utf-8")
 
 
 def test_runtime_outputs_are_gitignored_but_gitkeep_files_are_tracked() -> None:
