@@ -67,3 +67,9 @@ def test_codex_decision_pipeline_generates_review_json_and_backup(tmp_path: Path
     assert json.loads(result.review_path.read_text(encoding="utf-8"))["video_type"] == "body_cut_only"
     assert (output / "llm_review_package" / "style_profile.yaml").exists()
     assert (output / "llm_review_package" / "edit_decision.schema.json").exists()
+    schema = json.loads((output / "llm_review_package" / "edit_decision.schema.json").read_text(encoding="utf-8"))
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) <= set(schema["properties"])
+    assert set(schema["properties"]["segments"]["items"]["required"]) <= set(
+        schema["properties"]["segments"]["items"]["properties"]
+    )

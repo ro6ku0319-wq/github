@@ -22,7 +22,19 @@ class CodexRunner(Protocol):
 
 class SubprocessCodexRunner:
     def run(self, command: list[str]) -> None:
-        subprocess.run(command, check=True)
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(
+                "Codex CLI failed with exit code "
+                f"{completed.returncode}\nSTDOUT:\n{completed.stdout}\nSTDERR:\n"
+                f"{completed.stderr}"
+            )
 
 
 @dataclass(frozen=True)
@@ -191,11 +203,12 @@ def _edit_decision_schema() -> dict:
     ]
     return {
         "type": "object",
-        "additionalProperties": True,
+        "additionalProperties": False,
         "required": [
             "video_type",
             "external_hook",
             "recommended_body_duration_seconds",
+            "hair_region_presence",
             "first_20_seconds_body_plan",
             "segments",
             "cover_candidates",
@@ -203,15 +216,139 @@ def _edit_decision_schema() -> dict:
             "notes_for_human_editor",
         ],
         "properties": {
-            "video_type": {"const": "body_cut_only"},
+            "video_type": {"type": "string", "enum": ["body_cut_only"]},
+            "external_hook": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "provided_by_user",
+                    "generated_by",
+                    "not_included_in_this_decision",
+                    "expected_duration_seconds",
+                ],
+                "properties": {
+                    "provided_by_user": {"type": "boolean"},
+                    "generated_by": {"type": "string"},
+                    "not_included_in_this_decision": {"type": "boolean"},
+                    "expected_duration_seconds": {"type": "number"},
+                },
+            },
             "recommended_body_duration_seconds": {"type": "number"},
+            "hair_region_presence": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "front_hair",
+                    "sideburns",
+                    "back_hair",
+                    "other_hair_blocks",
+                ],
+                "properties": {
+                    "front_hair": {"type": "boolean"},
+                    "sideburns": {"type": "boolean"},
+                    "back_hair": {"type": "boolean"},
+                    "other_hair_blocks": {"type": "boolean"},
+                },
+            },
+            "first_20_seconds_body_plan": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "output_time_range",
+                        "source_global_time",
+                        "purpose",
+                        "reason",
+                    ],
+                    "properties": {
+                        "output_time_range": {"type": "string"},
+                        "source_global_time": {"type": "string"},
+                        "purpose": {"type": "string"},
+                        "reason": {"type": "string"},
+                    },
+                },
+            },
             "segments": {
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "additionalProperties": True,
+                    "additionalProperties": False,
                     "required": segment_required,
+                    "properties": {
+                        "node_id": {"type": "string"},
+                        "label": {"type": "string"},
+                        "label_cn": {"type": "string"},
+                        "start_global_time": {"type": "string"},
+                        "end_global_time": {"type": "string"},
+                        "edit_action": {
+                            "type": "string",
+                            "enum": [
+                                "keep",
+                                "keep_compress",
+                                "delete",
+                                "use_as_transition",
+                                "keep_until_action_completion",
+                            ],
+                        },
+                        "include_in_body_45s": {"type": "boolean"},
+                        "include_in_body_60s": {"type": "boolean"},
+                        "include_in_body_120s": {"type": "boolean"},
+                        "output_duration_seconds": {"type": "number"},
+                        "speed_multiplier": {"type": "number"},
+                        "rhythm_role": {"type": "string"},
+                        "requires_final_position": {"type": "boolean"},
+                        "result_visible_at_next_node": {"type": "boolean"},
+                        "hair_region": {
+                            "type": "string",
+                            "enum": [
+                                "front_hair",
+                                "sideburns",
+                                "back_hair",
+                                "other_hair_blocks",
+                                "not_hair",
+                            ],
+                        },
+                        "process_phase": {
+                            "type": "string",
+                            "enum": ["blockout", "refinement", "other"],
+                        },
+                        "shows_phase_result": {"type": "boolean"},
+                        "importance": {"type": "number"},
+                        "reason": {"type": "string"},
+                    },
                 },
+            },
+            "cover_candidates": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["node_id", "cover_type", "time", "reason"],
+                    "properties": {
+                        "node_id": {"type": "string"},
+                        "cover_type": {"type": "string"},
+                        "time": {"type": "string"},
+                        "reason": {"type": "string"},
+                    },
+                },
+            },
+            "davinci_markers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["time", "name", "note"],
+                    "properties": {
+                        "time": {"type": "string"},
+                        "name": {"type": "string"},
+                        "note": {"type": "string"},
+                    },
+                },
+            },
+            "notes_for_human_editor": {
+                "type": "array",
+                "items": {"type": "string"},
             },
         },
     }
