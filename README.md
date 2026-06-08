@@ -105,13 +105,13 @@ output/llm_result/codex_generated_edit_decision.json
 output/llm_result/edit_decision.json
 ```
 
-如果 `edit_decision.json` 已经存在，程序会先生成带时间戳的 `.bak.json` 备份，避免覆盖人工修改。新版提示词会要求模型区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按你在证据包生成前设置的大型/细化比例、历史偏好和 `importance` 取舍片段。
+如果 `edit_decision.json` 已经存在，程序会先生成带时间戳的 `.bak.json` 备份，避免覆盖人工修改。新版提示词会要求模型区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按你在证据包生成前设置的大型/细化比例、历史偏好和 `importance` 取舍片段。左右对称或接近左右对称的同类雕刻操作会被分到同一 `symmetry_group`，默认只保留更清晰的一侧作为 `representative`，重复侧标记为 `duplicate_omitted` 并压缩或删除。
 
 ```text
 output/llm_result/edit_decision.json
 ```
 
-然后在 GUI 的“应用 LLM 决策”页加载并人工审查 JSON。你可以在表格中修改 `edit_action`、`include_in_body_60s`、`output_duration_seconds`、`hair_region`、`process_phase`、`importance` 和 `reason`，保存后点击“应用生成视频”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长及头发区域/阶段覆盖。新版决策文件若缺少任一存在发块的大型或细化结果，程序会拒绝应用，避免导出不完整视频；旧版决策文件没有头发覆盖字段时仍可兼容应用并给出警告。校验通过后输出：
+然后在 GUI 的“应用 LLM 决策”页加载并人工审查 JSON。你可以在表格中修改 `edit_action`、`include_in_body_60s`、`output_duration_seconds`、`hair_region`、`process_phase`、`symmetry_group`、`symmetry_side`、`symmetry_keep_role`、`importance` 和 `reason`，保存后点击“应用生成视频”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长、头发区域/阶段覆盖及对称字段取值。新版决策文件若缺少任一存在发块的大型或细化结果，程序会拒绝应用，避免导出不完整视频；旧版决策文件没有头发覆盖字段时仍可兼容应用并给出警告。校验通过后输出：
 
 ```text
 output/llm_result/llm_guided_body_cut.mp4

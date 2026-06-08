@@ -173,6 +173,9 @@ def _write_report(
             f"{format_timecode(item.start_global_time)} -> {format_timecode(item.end_global_time)}, "
             f"hair={metadata_by_node.get(item.node_id, {}).get('hair_region', 'unknown')}/"
             f"{metadata_by_node.get(item.node_id, {}).get('process_phase', 'unknown')}, "
+            f"symmetry={metadata_by_node.get(item.node_id, {}).get('symmetry_group', 'unknown')}/"
+            f"{metadata_by_node.get(item.node_id, {}).get('symmetry_side', 'unknown')}/"
+            f"{metadata_by_node.get(item.node_id, {}).get('symmetry_keep_role', 'unknown')}, "
             f"importance={metadata_by_node.get(item.node_id, {}).get('importance', 'unknown')}, "
             f"speed={item.speed_multiplier:.3f}, reason={item.reason}"
         )

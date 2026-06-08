@@ -271,10 +271,26 @@ high_detail_contact_sheet.jpg、frame_manifest.json 和 operation_candidates.csv
 用于满足该要求的片段必须设置 include_in_body_60s=true、
 shows_phase_result=true，并填写对应 hair_region 和 process_phase。
 
+## 左右对称压缩
+
+识别 blockout 和 refinement 中左右对称或接近左右对称的雕刻操作。
+如果左侧和右侧是在同一 hair_region/process_phase 中做相同或高度相似的操作，
+60 秒版本只保留更清晰、更有代表性的一侧过程，另一侧作为重复侧压缩或删除。
+- 给同一组左右对称操作填写相同 symmetry_group，例如 front_blockout_pair_01。
+- symmetry_side 只能使用 left、right、center、both、not_applicable、unknown。
+- symmetry_keep_role 只能使用 representative、duplicate_omitted、not_symmetric、
+  supporting_context、unknown。
+- 保留的一侧填写 symmetry_keep_role=representative，并设置 include_in_body_60s=true。
+- 被省略的重复侧填写 symmetry_keep_role=duplicate_omitted，优先设置
+  include_in_body_60s=false 或 output_duration_seconds=0。
+- 如果两侧不是重复操作，或者另一侧有明显不同的关键结果，可使用
+  supporting_context 并保留极短必要时间。
+
 ## 取舍与时长
 
 - 先保证所有存在区域的大型和细化结果都被展示，再按 importance 从高到低选片段。
 - 前发与鬓发细化、造型辨识度高的其他发块、明显完成节点优先。
+- 左右对称重复操作只保留单侧代表，节省出的时间优先分配给高价值细化结果。
 - 重复修改、UI 操作、无结果的旋转缩放、长时间静止优先删除或压缩。
 - importance 使用 0–10，10 表示最重要。
 - 所有 include_in_body_60s=true 且未删除片段的 output_duration_seconds 总和应约为 60 秒。
@@ -321,10 +337,14 @@ shows_phase_result=true，并填写对应 hair_region 和 process_phase。
 end_global_time、edit_action、include_in_body_45s、include_in_body_60s、
 include_in_body_120s、output_duration_seconds、speed_multiplier、rhythm_role、
 requires_final_position、result_visible_at_next_node、hair_region、process_phase、
-shows_phase_result、importance 和 reason。
+shows_phase_result、symmetry_group、symmetry_side、symmetry_keep_role、
+importance 和 reason。
 
 hair_region 只能使用 front_hair、sideburns、back_hair、other_hair_blocks、
 not_hair。process_phase 只能使用 blockout、refinement、other。
+symmetry_side 只能使用 left、right、center、both、not_applicable、unknown。
+symmetry_keep_role 只能使用 representative、duplicate_omitted、not_symmetric、
+supporting_context、unknown。
 """.replace("{phase_prompt}", phase_prompt)
 
 

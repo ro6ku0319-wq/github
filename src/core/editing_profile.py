@@ -248,6 +248,11 @@ def _decision_summary(payload: dict[str, Any]) -> dict[str, Any]:
                 ),
                 "hair_region": str(segment.get("hair_region", "not_hair")),
                 "process_phase": str(segment.get("process_phase", "other")),
+                "symmetry_group": str(segment.get("symmetry_group", "")),
+                "symmetry_side": str(segment.get("symmetry_side", "unknown")),
+                "symmetry_keep_role": str(
+                    segment.get("symmetry_keep_role", "unknown")
+                ),
                 "importance": float(segment.get("importance", 0.0)),
             }
         )

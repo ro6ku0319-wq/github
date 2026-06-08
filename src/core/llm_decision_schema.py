@@ -61,6 +61,21 @@ HAIR_REGION_KEYS = (
 )
 ALLOWED_HAIR_REGIONS = {*HAIR_REGION_KEYS, "not_hair"}
 ALLOWED_PROCESS_PHASES = {"blockout", "refinement", "other"}
+ALLOWED_SYMMETRY_SIDES = {
+    "left",
+    "right",
+    "center",
+    "both",
+    "not_applicable",
+    "unknown",
+}
+ALLOWED_SYMMETRY_KEEP_ROLES = {
+    "representative",
+    "duplicate_omitted",
+    "not_symmetric",
+    "supporting_context",
+    "unknown",
+}
 
 ALLOWED_ACTIONS = {
     "keep",
@@ -220,6 +235,49 @@ def _validate_optional_hair_fields(
         importance = _number(segment["importance"], f"segments[{index}].importance")
         if importance < 0 or importance > 10:
             warnings.append(f"warning: segments[{index}].importance 超出 0-10")
+    _validate_optional_symmetry_fields(segment, index, warnings)
+
+
+def _validate_optional_symmetry_fields(
+    segment: dict[str, Any],
+    index: int,
+    warnings: list[str],
+) -> None:
+    symmetry_group = segment.get("symmetry_group")
+    if symmetry_group is not None and not isinstance(symmetry_group, str):
+        raise LlmDecisionValidationError(
+            f"segments[{index}].symmetry_group 必须是字符串"
+        )
+    symmetry_side = segment.get("symmetry_side")
+    if symmetry_side is not None and symmetry_side not in ALLOWED_SYMMETRY_SIDES:
+        raise LlmDecisionValidationError(
+            f"segments[{index}].symmetry_side 无效: {symmetry_side}"
+        )
+    symmetry_keep_role = segment.get("symmetry_keep_role")
+    if (
+        symmetry_keep_role is not None
+        and symmetry_keep_role not in ALLOWED_SYMMETRY_KEEP_ROLES
+    ):
+        raise LlmDecisionValidationError(
+            f"segments[{index}].symmetry_keep_role 无效: {symmetry_keep_role}"
+        )
+    if (
+        symmetry_keep_role == "duplicate_omitted"
+        and segment.get("include_in_body_60s") is True
+        and normalise_edit_action(segment.get("edit_action")) != "delete"
+    ):
+        warnings.append(
+            f"warning: segments[{index}] symmetry_keep_role=duplicate_omitted "
+            "但仍被 include_in_body_60s 选中"
+        )
+    if (
+        symmetry_keep_role == "representative"
+        and segment.get("include_in_body_60s") is not True
+    ):
+        warnings.append(
+            f"warning: segments[{index}] symmetry_keep_role=representative "
+            "但未进入 body_60"
+        )
 
 
 def _append_body_60_duration_warning(

@@ -74,3 +74,8 @@ def test_codex_decision_pipeline_generates_review_json_and_backup(tmp_path: Path
     assert set(schema["properties"]["segments"]["items"]["required"]) <= set(
         schema["properties"]["segments"]["items"]["properties"]
     )
+    segment_schema = schema["properties"]["segments"]["items"]
+    assert "symmetry_group" in segment_schema["required"]
+    assert "symmetry_side" in segment_schema["required"]
+    assert "symmetry_keep_role" in segment_schema["required"]
+    assert "duplicate_omitted" in segment_schema["properties"]["symmetry_keep_role"]["enum"]

@@ -199,6 +199,9 @@ def _edit_decision_schema() -> dict:
         "hair_region",
         "process_phase",
         "shows_phase_result",
+        "symmetry_group",
+        "symmetry_side",
+        "symmetry_keep_role",
         "importance",
         "reason",
     ]
@@ -315,6 +318,28 @@ def _edit_decision_schema() -> dict:
                             "enum": ["blockout", "refinement", "other"],
                         },
                         "shows_phase_result": {"type": "boolean"},
+                        "symmetry_group": {"type": "string"},
+                        "symmetry_side": {
+                            "type": "string",
+                            "enum": [
+                                "left",
+                                "right",
+                                "center",
+                                "both",
+                                "not_applicable",
+                                "unknown",
+                            ],
+                        },
+                        "symmetry_keep_role": {
+                            "type": "string",
+                            "enum": [
+                                "representative",
+                                "duplicate_omitted",
+                                "not_symmetric",
+                                "supporting_context",
+                                "unknown",
+                            ],
+                        },
                         "importance": {"type": "number"},
                         "reason": {"type": "string"},
                     },

@@ -181,6 +181,25 @@ def test_validate_llm_decision_warns_when_hair_coverage_metadata_is_missing() ->
     assert any("hair_region_presence" in warning for warning in result.warnings)
 
 
+def test_validate_llm_decision_rejects_invalid_symmetry_metadata() -> None:
+    payload = decision_payload()
+    payload["segments"][0]["symmetry_side"] = "diagonal"
+
+    with pytest.raises(LlmDecisionValidationError, match="symmetry_side"):
+        validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
+
+
+def test_validate_llm_decision_warns_when_duplicate_symmetry_segment_is_included() -> None:
+    payload = decision_payload()
+    payload["segments"][0]["symmetry_group"] = "front_blockout_pair_01"
+    payload["segments"][0]["symmetry_side"] = "left"
+    payload["segments"][0]["symmetry_keep_role"] = "duplicate_omitted"
+
+    result = validate_llm_decision(payload, known_node_ids={"node_0001", "node_0002"})
+
+    assert any("duplicate_omitted" in warning for warning in result.warnings)
+
+
 def test_validate_llm_decision_rejects_string_boolean_fields() -> None:
     payload = decision_payload()
     payload["segments"][0]["include_in_body_45s"] = "false"
