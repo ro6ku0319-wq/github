@@ -25,6 +25,7 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         "auto_node_preview.mp4",
         "davinci_markers.csv",
         "llm_review_package",
+        "codex_generated_edit_decision.json",
         "llm_guided_body_cut.mp4",
         "llm_edit_report.txt",
         "project_manifest.json",
@@ -42,7 +43,11 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         r".\.venv\Scripts\python.exe make_timelapse.py --analyze-nodes",
         r".\.venv\Scripts\python.exe make_timelapse.py --export-cuts",
         r".\.venv\Scripts\python.exe make_timelapse.py --build-llm-package",
+        r".\.venv\Scripts\python.exe make_timelapse.py --codex-generate-decision",
         r".\.venv\Scripts\python.exe make_timelapse.py --apply-llm-decision",
+        r".\.venv\Scripts\python.exe make_timelapse.py --confirm-llm-decision",
+        r".\.venv\Scripts\python.exe make_timelapse.py --export-editing-profile",
+        r".\.venv\Scripts\python.exe make_timelapse.py --import-editing-profile",
         r".\.venv\Scripts\python.exe make_timelapse.py --use-cut-decision",
         r".\.venv\Scripts\python.exe make_timelapse.py --generate-body-60",
         r".\.venv\Scripts\python.exe make_timelapse.py --export-with-hook",
@@ -57,10 +62,16 @@ def test_foundation_entrypoints_docs_and_runtime_dirs_exist() -> None:
         "当前版本范围",
         "人工审查保存",
         "45/60/120 秒 body cut",
-        "手动 LLM 工作流",
+        "手动 LLM/Codex 工作流",
+        "bodycut-editor",
+        "Codex 选片学习偏好",
         "Blender Hook 自动拼接",
     ):
         assert expected in readme
+
+    skill = root / ".agents" / "skills" / "bodycut-editor" / "SKILL.md"
+    assert skill.exists()
+    assert "edit_decision.json" in skill.read_text(encoding="utf-8")
 
 
 def test_runtime_outputs_are_gitignored_but_gitkeep_files_are_tracked() -> None:

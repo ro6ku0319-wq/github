@@ -42,6 +42,8 @@ class LlmWorkflowPanel(QWidget):
         layout.addLayout(ratio_row)
         self.build_package_button = QPushButton("生成 LLM 视觉证据包")
         layout.addWidget(self.build_package_button)
+        self.codex_generate_button = QPushButton("Codex 一键生成剪辑说明书")
+        layout.addWidget(self.codex_generate_button)
 
         layout.addWidget(QLabel("edit_decision.json 路径"))
         path_row = QHBoxLayout()
@@ -85,6 +87,7 @@ class LlmWorkflowPanel(QWidget):
 
     def set_actions_enabled(self, enabled: bool) -> None:
         self.build_package_button.setEnabled(enabled)
+        self.codex_generate_button.setEnabled(enabled)
         self.apply_decision_button.setEnabled(enabled)
         self.choose_decision_button.setEnabled(enabled)
         self.phase_balance_checkbox.setEnabled(enabled)

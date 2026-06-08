@@ -17,6 +17,8 @@ OUTPUT_PATHS = {
     "body_cut_120s": "body_cut_120s.mp4",
     "auto_node_preview": "auto_node_preview.mp4",
     "llm_guided_body_cut": "llm_result/llm_guided_body_cut.mp4",
+    "codex_generated_edit_decision": "llm_result/codex_generated_edit_decision.json",
+    "edit_decision": "llm_result/edit_decision.json",
     "external_hook": "normalized_hook.mp4",
     "final_with_hook_45s": "final_with_hook_45s.mp4",
     "final_with_hook_60s": "final_with_hook_60s.mp4",

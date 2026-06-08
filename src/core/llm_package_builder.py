@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 
 from src.core.image_io import read_image, write_image
+from src.core.editing_profile import EditingProfileManager
 from src.core.timecode import format_timecode
 from src.core.project_manifest import ProjectManifest
 
@@ -95,6 +96,7 @@ class LlmPackageBuilder:
         _write_frame_sheet(package / "high_detail_contact_sheet.jpg", high_detail)
 
         self._update(90, "生成 llm_prompt.md")
+        EditingProfileManager().snapshot_to(package / "style_profile.yaml")
         (package / "llm_prompt.md").write_text(
             _prompt_text(self.config),
             encoding="utf-8",
@@ -276,6 +278,7 @@ shows_phase_result=true，并填写对应 hair_region 和 process_phase。
 - 重复修改、UI 操作、无结果的旋转缩放、长时间静止优先删除或压缩。
 - importance 使用 0–10，10 表示最重要。
 - 所有 include_in_body_60s=true 且未删除片段的 output_duration_seconds 总和应约为 60 秒。
+- 如果证据包中存在 style_profile.yaml，必须优先参考其中的长期偏好。
 {phase_prompt}
 
 ## 动作规则

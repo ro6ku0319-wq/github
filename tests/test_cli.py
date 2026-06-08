@@ -125,6 +125,45 @@ def patch_cli_dependencies(
     monkeypatch.setattr(cli_module, "LlmPackageBuilder", FakeLlmPackageBuilder)
     monkeypatch.setattr(cli_module, "LlmDecisionPipeline", FakeLlmDecisionPipeline)
 
+    class FakeCodexDecisionPipeline:
+        def __init__(
+            self,
+            project_dir: Path,
+            config_arg: dict[str, object],
+            log: FakeProjectLogger,
+        ) -> None:
+            calls.append(("codex_decision", Path(project_dir), config_arg, log))
+
+        def generate(self) -> None:
+            calls.append("codex_generate_decision")
+
+    monkeypatch.setattr(cli_module, "CodexDecisionPipeline", FakeCodexDecisionPipeline)
+
+    class FakeEditingProfileManager:
+        def export_archive(self, destination: Path) -> Path:
+            calls.append(("export_editing_profile", destination))
+            return destination
+
+        def import_archive(self, source: Path) -> None:
+            calls.append(("import_editing_profile", source))
+
+        def confirm_decision(
+            self,
+            generated_decision: Path,
+            final_decision: Path,
+            project_name: str,
+        ) -> None:
+            calls.append(
+                (
+                    "confirm_llm_decision",
+                    generated_decision,
+                    final_decision,
+                    project_name,
+                )
+            )
+
+    monkeypatch.setattr(cli_module, "EditingProfileManager", FakeEditingProfileManager)
+
     class FakeHookPipeline:
         def __init__(
             self,
@@ -153,6 +192,8 @@ def stage_calls(calls: list[object]) -> list[str]:
         ("--analyze-nodes", "analyze_nodes"),
         ("--export-cuts", "export_cuts"),
         ("--build-llm-package", "build_llm_package"),
+        ("--codex-generate-decision", "codex_generate_decision"),
+        ("--confirm-llm-decision", "confirm_llm_decision"),
         ("--export-with-hook", "export_with_hook"),
         ("--generate-body-45", "generate_body_45"),
         ("--generate-body-60", "generate_body_60"),
@@ -300,6 +341,56 @@ def test_main_apply_llm_decision_runs_decision_pipeline(
     assert result == 0
     assert calls[3][0] == "llm_decision"
     assert calls[4] == ("apply_llm_decision", decision_path)
+
+
+def test_main_codex_generate_decision_runs_codex_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cli = load_cli_module()
+    calls: list[object] = []
+    patch_cli_dependencies(monkeypatch, cli, calls)
+
+    result = cli.main(["--project-dir", str(tmp_path), "--codex-generate-decision"])
+
+    assert result == 0
+    assert calls[3][0] == "codex_decision"
+    assert calls[4] == "codex_generate_decision"
+
+
+def test_main_confirm_llm_decision_updates_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cli = load_cli_module()
+    calls: list[object] = []
+    patch_cli_dependencies(monkeypatch, cli, calls)
+
+    result = cli.main(["--project-dir", str(tmp_path), "--confirm-llm-decision"])
+
+    assert result == 0
+    assert calls[3] == (
+        "confirm_llm_decision",
+        tmp_path / "output" / "llm_result" / "codex_generated_edit_decision.json",
+        tmp_path / "output" / "llm_result" / "edit_decision.json",
+        tmp_path.name,
+    )
+
+
+def test_main_exports_and_imports_editing_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cli = load_cli_module()
+    calls: list[object] = []
+    patch_cli_dependencies(monkeypatch, cli, calls)
+    archive = tmp_path / "profile.zip"
+
+    assert cli.main(["--project-dir", str(tmp_path), "--export-editing-profile", str(archive)]) == 0
+    assert cli.main(["--project-dir", str(tmp_path), "--import-editing-profile", str(archive)]) == 0
+
+    assert ("export_editing_profile", archive) in calls
+    assert ("import_editing_profile", archive) in calls
 
 
 def test_main_export_with_hook_runs_hook_pipeline(

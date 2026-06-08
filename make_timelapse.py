@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Sequence
 
 from src.core.config_manager import ConfigManager
+from src.core.codex_decision_pipeline import CodexDecisionPipeline
+from src.core.editing_profile import EditingProfileManager
 from src.core.hook_pipeline import HookPipeline
 from src.core.llm_decision_pipeline import LlmDecisionPipeline
 from src.core.llm_package_builder import LlmPackageBuilder
@@ -25,7 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
     stages.add_argument("--analyze-nodes", action="store_true")
     stages.add_argument("--export-cuts", action="store_true")
     stages.add_argument("--build-llm-package", action="store_true")
+    stages.add_argument("--codex-generate-decision", action="store_true")
     stages.add_argument("--apply-llm-decision", type=Path)
+    stages.add_argument("--confirm-llm-decision", action="store_true")
+    stages.add_argument("--export-editing-profile", type=Path)
+    stages.add_argument("--import-editing-profile", type=Path)
     stages.add_argument("--export-with-hook", action="store_true")
     stages.add_argument("--use-cut-decision", type=Path)
     stages.add_argument("--generate-body-45", action="store_true")
@@ -50,7 +56,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         or args.analyze_nodes
         or args.export_cuts
         or args.build_llm_package
+        or args.codex_generate_decision
         or args.apply_llm_decision is not None
+        or args.confirm_llm_decision
+        or args.export_editing_profile is not None
+        or args.import_editing_profile is not None
         or args.export_with_hook
         or args.use_cut_decision is not None
         or args.generate_body_45
@@ -66,6 +76,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     manager = ConfigManager(args.project_dir)
     config = manager.load()
     logger = ProjectLogger(_logs_dir(args.project_dir, config), sink=print)
+    if args.export_editing_profile is not None:
+        EditingProfileManager().export_archive(args.export_editing_profile)
+        return 0
+    if args.import_editing_profile is not None:
+        EditingProfileManager().import_archive(args.import_editing_profile)
+        return 0
     if args.analyze_nodes:
         NodeAnalysisPipeline(args.project_dir, config, log=logger).run_all()
         return 0
@@ -112,9 +128,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.build_llm_package:
         LlmPackageBuilder(args.project_dir, config, log=logger).build()
         return 0
+    if args.codex_generate_decision:
+        CodexDecisionPipeline(args.project_dir, config, log=logger).generate()
+        return 0
     if args.apply_llm_decision is not None:
         LlmDecisionPipeline(args.project_dir, config, log=logger).apply(
             args.apply_llm_decision
+        )
+        return 0
+    if args.confirm_llm_decision:
+        output_config = config.get("output", {})
+        if not isinstance(output_config, dict):
+            output_config = {}
+        project_config = config.get("project", {})
+        if not isinstance(project_config, dict):
+            project_config = {}
+        result_dir = args.project_dir / str(
+            output_config.get("output_dir", "output")
+        ) / "llm_result"
+        EditingProfileManager().confirm_decision(
+            result_dir / "codex_generated_edit_decision.json",
+            result_dir / "edit_decision.json",
+            project_name=str(project_config.get("name", args.project_dir.name)),
         )
         return 0
     if args.export_with_hook:

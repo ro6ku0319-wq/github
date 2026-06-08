@@ -86,6 +86,7 @@ def test_llm_package_builder_creates_manual_review_package(tmp_path: Path) -> No
         "frame_manifest.json",
         "operation_candidates.csv",
         "llm_prompt.md",
+        "style_profile.yaml",
     ):
         assert (package / relative).exists()
     assert len(list((package / "frames").glob("F*.jpg"))) == 4

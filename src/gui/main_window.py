@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
 )
 
 from src.core.config_manager import ConfigManager
+from src.core.codex_decision_pipeline import CodexDecisionPipeline
+from src.core.editing_profile import EditingProfileManager
 from src.core.file_collector import collect_videos, write_order_file
 from src.core.hook_pipeline import HookPipeline
 from src.core.llm_decision_pipeline import LlmDecisionPipeline
@@ -135,10 +137,16 @@ class MainWindow(QMainWindow):
         self.llm_workflow_panel.build_package_button.clicked.connect(
             self._build_llm_package
         )
+        self.llm_workflow_panel.codex_generate_button.clicked.connect(
+            self._codex_generate_decision
+        )
         self.llm_workflow_panel.apply_decision_button.clicked.connect(
-            self._apply_llm_decision
+            lambda: self._apply_llm_decision(
+                self.llm_workflow_panel.selected_decision_path()
+            )
         )
         self.llm_apply_panel.apply_requested.connect(self._apply_llm_decision)
+        self.llm_apply_panel.confirm_requested.connect(self._confirm_llm_decision)
         self.hook_panel.save_button.clicked.connect(self._save_hook_settings)
         self.hook_panel.export_button.clicked.connect(self._export_with_hook)
         self.preview_panel.refresh_requested.connect(self._refresh_preview)
@@ -287,8 +295,26 @@ class MainWindow(QMainWindow):
             ).build(),
         )
 
+    def _codex_generate_decision(self) -> None:
+        if not self._save_llm_package_settings():
+            return
+        self._start_pipeline(
+            "Codex 生成剪辑说明书",
+            lambda config, signals: CodexDecisionPipeline(
+                self.project_dir,
+                config,
+                log=ProjectLogger(self._logs_dir(config), sink=signals.log.emit),
+                progress=signals.progress.emit,
+            ).generate(),
+            load_llm_decision=True,
+        )
+
     def _apply_llm_decision(self, decision_path: Path | None = None) -> None:
-        path = decision_path or self.llm_workflow_panel.selected_decision_path()
+        path = (
+            decision_path
+            or self.llm_apply_panel.selected_decision_path()
+            or self.llm_workflow_panel.selected_decision_path()
+        )
         self._start_pipeline(
             "应用 LLM 剪辑说明书",
             lambda config, signals: LlmDecisionPipeline(
@@ -297,6 +323,21 @@ class MainWindow(QMainWindow):
                 log=ProjectLogger(self._logs_dir(config), sink=signals.log.emit),
                 progress=signals.progress.emit,
             ).apply(path),
+        )
+
+    def _confirm_llm_decision(self) -> None:
+        try:
+            output = self._output_dir(self._load_config()) / "llm_result"
+            result = EditingProfileManager().confirm_decision(
+                output / "codex_generated_edit_decision.json",
+                output / "edit_decision.json",
+                project_name=str(_section(self._load_config(), "project").get("name", self.project_dir.name)),
+            )
+        except Exception as error:
+            self.log_panel.append_log(f"确认最终方案并学习失败: {error}")
+            return
+        self.log_panel.append_log(
+            f"确认最终方案并学习完成，样本数: {result.sample_count}"
         )
 
     def _export_with_hook(self) -> None:
@@ -320,6 +361,7 @@ class MainWindow(QMainWindow):
         name: str,
         operation: Any,
         load_decisions: bool = False,
+        load_llm_decision: bool = False,
     ) -> None:
         if self.active_workers:
             self.log_panel.append_log("任务正在运行，请等待当前任务完成")
@@ -334,6 +376,10 @@ class MainWindow(QMainWindow):
         if load_decisions:
             worker.signals.succeeded.connect(
                 lambda message: self._finish_node_analysis_worker(worker, message)
+            )
+        elif load_llm_decision:
+            worker.signals.succeeded.connect(
+                lambda message: self._finish_llm_decision_worker(worker, message)
             )
         else:
             worker.signals.succeeded.connect(
@@ -360,6 +406,16 @@ class MainWindow(QMainWindow):
     def _finish_node_analysis_worker(self, worker: TaskWorker, message: str) -> None:
         self._finish_worker(worker, message)
         self._load_cut_decision()
+
+    def _finish_llm_decision_worker(self, worker: TaskWorker, message: str) -> None:
+        self._finish_worker(worker, message)
+        try:
+            path = self._output_dir(self._load_config()) / "llm_result" / "edit_decision.json"
+            self.llm_apply_panel.load_json(path)
+            self.pages.setCurrentWidget(self.llm_apply_panel)
+            self.navigation.setCurrentRow(6)
+        except Exception as error:
+            self.log_panel.append_log(f"加载 Codex 生成 JSON 失败: {error}")
 
     def _set_processing_enabled(self, enabled: bool) -> None:
         self.processing_panel.run_foundation.setEnabled(enabled)

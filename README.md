@@ -93,17 +93,25 @@ output/llm_review_package/
   high_detail_contact_sheet.jpg
   frame_manifest.json
   operation_candidates.csv
+  style_profile.yaml
   llm_prompt.md
   frames/
 ```
 
-把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT，让其按照提示词输出严格 JSON 格式的 `edit_decision.json`。新版提示词会要求 ChatGPT 区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按你在证据包生成前设置的大型/细化比例和 `importance` 取舍片段。把 JSON 保存到：
+你可以继续把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT；也可以直接点击“Codex 一键生成剪辑说明书”。Codex 会通过仓库内的 `.agents/skills/bodycut-editor/SKILL.md` 读取证据包、联系图、候选节点和 `style_profile.yaml`，生成：
+
+```text
+output/llm_result/codex_generated_edit_decision.json
+output/llm_result/edit_decision.json
+```
+
+如果 `edit_decision.json` 已经存在，程序会先生成带时间戳的 `.bak.json` 备份，避免覆盖人工修改。新版提示词会要求模型区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按你在证据包生成前设置的大型/细化比例、历史偏好和 `importance` 取舍片段。
 
 ```text
 output/llm_result/edit_decision.json
 ```
 
-然后在 GUI 中点击“应用 LLM 剪辑说明书”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长及头发区域/阶段覆盖。新版决策文件若缺少任一存在发块的大型或细化结果，程序会拒绝应用，避免导出不完整视频；旧版决策文件没有头发覆盖字段时仍可兼容应用并给出警告。校验通过后输出：
+然后在 GUI 的“应用 LLM 决策”页加载并人工审查 JSON。你可以在表格中修改 `edit_action`、`include_in_body_60s`、`output_duration_seconds`、`hair_region`、`process_phase`、`importance` 和 `reason`，保存后点击“应用生成视频”。程序会校验必填字段、时间码、节点引用、速度范围、`video_type`、前 20 秒计划、60 秒总时长及头发区域/阶段覆盖。新版决策文件若缺少任一存在发块的大型或细化结果，程序会拒绝应用，避免导出不完整视频；旧版决策文件没有头发覆盖字段时仍可兼容应用并给出警告。校验通过后输出：
 
 ```text
 output/llm_result/llm_guided_body_cut.mp4
@@ -112,6 +120,8 @@ output/llm_result/davinci_markers.csv
 ```
 
 LLM 只负责雕刻过程 body cut，不处理或生成 Blender Hook。
+
+点击“确认最终方案并学习”后，程序会比较 Codex 原始方案和你最终保存的方案，将差异写入全局偏好档案 `%APPDATA%\OB11BodyCut\editing_profile\`。换电脑时可导出/导入该档案。
 
 ## Blender Hook
 1. 将 Blender 制作的 Hook 放入 `input/hook/`，或在 GUI 的“Blender Hook”页选择任意视频文件。
@@ -130,7 +140,11 @@ LLM 只负责雕刻过程 body cut，不处理或生成 Blender Hook。
 .\.venv\Scripts\python.exe make_timelapse.py --analyze-nodes
 .\.venv\Scripts\python.exe make_timelapse.py --export-cuts
 .\.venv\Scripts\python.exe make_timelapse.py --build-llm-package
+.\.venv\Scripts\python.exe make_timelapse.py --codex-generate-decision
 .\.venv\Scripts\python.exe make_timelapse.py --apply-llm-decision output/llm_result/edit_decision.json
+.\.venv\Scripts\python.exe make_timelapse.py --confirm-llm-decision
+.\.venv\Scripts\python.exe make_timelapse.py --export-editing-profile output/editing_profile.zip
+.\.venv\Scripts\python.exe make_timelapse.py --import-editing-profile output/editing_profile.zip
 .\.venv\Scripts\python.exe make_timelapse.py --use-cut-decision output/manual_cut_decision.csv
 .\.venv\Scripts\python.exe make_timelapse.py --generate-body-45
 .\.venv\Scripts\python.exe make_timelapse.py --generate-body-60
@@ -141,7 +155,7 @@ LLM 只负责雕刻过程 body cut，不处理或生成 Blender Hook。
 阶段开关互斥。`--only-accelerate` 假设 `output/full_concat.mp4` 已经存在；节点分析、body cut 导出和 LLM 工作流需要先生成各自的上游输出。
 
 ## 当前版本范围
-当前版本已完成输入排序、基础拼接、5 倍加速、报告、候选节点分析、人工审查保存、三版 body cut、手动 LLM 工作流、预览、设置、项目清单和 Blender Hook 自动拼接。标题、BGM、字幕、片尾和最终发布包装仍由 DaVinci Resolve 完成。
+当前版本已完成输入排序、基础拼接、5 倍加速、报告、候选节点分析、人工审查保存、三版 body cut、手动 LLM/Codex 工作流、Codex 选片学习偏好、预览、设置、项目清单和 Blender Hook 自动拼接。标题、BGM、字幕、片尾和最终发布包装仍由 DaVinci Resolve 完成。
 
 ## 验收步骤
 1. 将 1 到 5 段真实 ZBrush 缩时视频放入 `input/`。

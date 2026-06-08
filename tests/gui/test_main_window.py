@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication
 
 from src.gui.main_window import MainWindow
+from src.gui.llm_apply_panel import LlmApplyPanel
+from tests.core.test_llm_decision_pipeline import decision_payload
 
 
 def get_app() -> QApplication:
@@ -45,8 +48,12 @@ def test_main_window_contains_navigation_progress_and_log_panel(
     assert window.processing_panel.resolution_combo.currentData() == "portrait_1080p"
     assert window.processing_panel.resolution_combo.count() == 4
     assert window.llm_workflow_panel.build_package_button.text() == "生成 LLM 视觉证据包"
+    assert window.llm_workflow_panel.codex_generate_button.text() == "Codex 一键生成剪辑说明书"
     assert window.llm_workflow_panel.apply_decision_button.text() == "应用 LLM 剪辑说明书"
     assert window.llm_workflow_panel.phase_balance_checkbox.text() == "生成 JSON 前约束大型/细化比例"
+    assert window.llm_apply_panel.save_button.text() == "保存 JSON"
+    assert window.llm_apply_panel.apply_button.text() == "应用生成视频"
+    assert window.llm_apply_panel.confirm_button.text() == "确认最终方案并学习"
     assert window.hook_panel.export_button.text() == "自动拼接 Hook 与 body cut"
     assert window.thread_pool.maxThreadCount() >= 1
 
@@ -276,6 +283,83 @@ def test_llm_workflow_panel_saves_manual_blockout_refinement_ratio_before_packag
     assert config["llm_package"]["blockout_duration_weight"] == 1.0
     assert config["llm_package"]["refinement_duration_weight"] == 2.0
     assert len(started_workers) == 1
+    window.close()
+    app.processEvents()
+
+
+def test_codex_generate_decision_starts_worker(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = get_app()
+    window = MainWindow(tmp_path)
+    started_workers: list[object] = []
+
+    class RecordingPool:
+        def maxThreadCount(self) -> int:
+            return 1
+
+        def start(self, worker: object) -> None:
+            started_workers.append(worker)
+
+    monkeypatch.setattr(window, "thread_pool", RecordingPool())
+
+    window._codex_generate_decision()
+
+    assert len(started_workers) == 1
+    assert not window.llm_workflow_panel.codex_generate_button.isEnabled()
+    window.close()
+    app.processEvents()
+
+
+def test_llm_apply_panel_loads_edits_and_saves_decision_json(tmp_path: Path) -> None:
+    app = get_app()
+    panel = LlmApplyPanel()
+    decision_path = tmp_path / "edit_decision.json"
+    decision_path.write_text(json.dumps(decision_payload()), encoding="utf-8")
+
+    panel.load_json(decision_path)
+    panel.table.item(0, panel.headers.index("edit_action")).setText("delete")
+    panel.save_json()
+
+    saved = json.loads(decision_path.read_text(encoding="utf-8"))
+    assert saved["segments"][0]["edit_action"] == "delete"
+    panel.close()
+    app.processEvents()
+
+
+def test_confirm_llm_decision_updates_global_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = get_app()
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    output = tmp_path / "output" / "llm_result"
+    output.mkdir(parents=True)
+    generated = decision_payload()
+    final = decision_payload()
+    generated["segments"][0]["output_duration_seconds"] = 50
+    generated["segments"][1]["output_duration_seconds"] = 10
+    final["segments"][0]["output_duration_seconds"] = 20
+    final["segments"][1]["output_duration_seconds"] = 40
+    (output / "codex_generated_edit_decision.json").write_text(
+        json.dumps(generated),
+        encoding="utf-8",
+    )
+    (output / "edit_decision.json").write_text(json.dumps(final), encoding="utf-8")
+    window = MainWindow(tmp_path)
+
+    window._confirm_llm_decision()
+
+    profile_path = (
+        tmp_path
+        / "appdata"
+        / "OB11BodyCut"
+        / "editing_profile"
+        / "style_profile.yaml"
+    )
+    assert profile_path.exists()
+    assert "确认最终方案并学习完成" in window.log_panel.toPlainText()
     window.close()
     app.processEvents()
 
