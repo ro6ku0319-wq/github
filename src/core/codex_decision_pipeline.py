@@ -127,6 +127,7 @@ class CodexDecisionPipeline:
         ]
         for image in images:
             command.extend(["--image", str(image)])
+        command.append("--")
         command.append(_codex_prompt(self.package_dir))
         return command
 

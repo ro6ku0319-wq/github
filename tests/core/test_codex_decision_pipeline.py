@@ -59,6 +59,7 @@ def test_codex_decision_pipeline_generates_review_json_and_backup(tmp_path: Path
     assert "read-only" in command
     assert "--output-schema" in command
     assert command.count("--image") == 3
+    assert command[-2] == "--"
     assert "$bodycut-editor" in " ".join(command)
     assert result.generated_path == output / "llm_result" / "codex_generated_edit_decision.json"
     assert result.review_path == output / "llm_result" / "edit_decision.json"
