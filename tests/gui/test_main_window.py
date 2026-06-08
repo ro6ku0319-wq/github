@@ -46,6 +46,7 @@ def test_main_window_contains_navigation_progress_and_log_panel(
     assert window.processing_panel.resolution_combo.count() == 4
     assert window.llm_workflow_panel.build_package_button.text() == "生成 LLM 视觉证据包"
     assert window.llm_workflow_panel.apply_decision_button.text() == "应用 LLM 剪辑说明书"
+    assert window.llm_workflow_panel.phase_balance_checkbox.text() == "生成 JSON 前约束大型/细化比例"
     assert window.hook_panel.export_button.text() == "自动拼接 Hook 与 body cut"
     assert window.thread_pool.maxThreadCount() >= 1
 
@@ -244,6 +245,37 @@ def test_llm_workflow_tasks_ignore_repeat_click_while_worker_is_active(
     window._finish_worker(started_workers[0], "LLM 视觉证据包完成")
     assert window.llm_workflow_panel.build_package_button.isEnabled()
     assert window.llm_workflow_panel.apply_decision_button.isEnabled()
+    window.close()
+    app.processEvents()
+
+
+def test_llm_workflow_panel_saves_manual_blockout_refinement_ratio_before_package_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = get_app()
+    window = MainWindow(tmp_path)
+    started_workers: list[object] = []
+
+    class RecordingPool:
+        def maxThreadCount(self) -> int:
+            return 1
+
+        def start(self, worker: object) -> None:
+            started_workers.append(worker)
+
+    monkeypatch.setattr(window, "thread_pool", RecordingPool())
+    window.llm_workflow_panel.phase_balance_checkbox.setChecked(True)
+    window.llm_workflow_panel.blockout_ratio_spin.setValue(1.0)
+    window.llm_workflow_panel.refinement_ratio_spin.setValue(2.0)
+
+    window._build_llm_package()
+
+    config = window._load_config()
+    assert config["llm_package"]["phase_balance_enabled"] is True
+    assert config["llm_package"]["blockout_duration_weight"] == 1.0
+    assert config["llm_package"]["refinement_duration_weight"] == 2.0
+    assert len(started_workers) == 1
     window.close()
     app.processEvents()
 

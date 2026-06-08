@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
         self.preview_panel = PreviewPanel()
         self.pages.addWidget(self.preview_panel)
         self.llm_workflow_panel = LlmWorkflowPanel()
+        self.llm_workflow_panel.load_config(config)
         self.pages.addWidget(self.llm_workflow_panel)
         self.llm_apply_panel = LlmApplyPanel()
         self.pages.addWidget(self.llm_apply_panel)
@@ -274,6 +275,8 @@ class MainWindow(QMainWindow):
         )
 
     def _build_llm_package(self) -> None:
+        if not self._save_llm_package_settings():
+            return
         self._start_pipeline(
             "LLM 视觉证据包",
             lambda config, signals: LlmPackageBuilder(
@@ -403,6 +406,20 @@ class MainWindow(QMainWindow):
         self.log_panel.append_log("已保存 Blender Hook 设置")
         return True
 
+    def _save_llm_package_settings(self) -> bool:
+        try:
+            manager = ConfigManager(self.project_dir)
+            config = manager.load()
+            section = _section(config, "llm_package")
+            section.update(self.llm_workflow_panel.config_values())
+            config["llm_package"] = section
+            manager.save(config)
+        except Exception as error:
+            self.log_panel.append_log(f"保存 LLM 证据包设置失败: {error}")
+            return False
+        self.log_panel.append_log("已保存 LLM 证据包设置")
+        return True
+
     def _save_project_settings(self) -> None:
         try:
             values = self.project_settings_panel.config_values()
@@ -479,6 +496,7 @@ class MainWindow(QMainWindow):
             config = self._load_config()
             self.project_settings_panel.load_config(self.project_dir, config)
             self.settings_panel.load_config(config)
+            self.llm_workflow_panel.load_config(config)
             self.hook_panel.load_config(_section(config, "external_hook"))
         except Exception as error:
             self.log_panel.append_log(f"重新加载配置失败: {error}")

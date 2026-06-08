@@ -95,7 +95,10 @@ class LlmPackageBuilder:
         _write_frame_sheet(package / "high_detail_contact_sheet.jpg", high_detail)
 
         self._update(90, "生成 llm_prompt.md")
-        (package / "llm_prompt.md").write_text(_prompt_text(), encoding="utf-8")
+        (package / "llm_prompt.md").write_text(
+            _prompt_text(self.config),
+            encoding="utf-8",
+        )
         ProjectManifest(self.project_dir, self.config).refresh()
         self._update(100, "LLM 视觉证据包完成")
         return LlmPackageResult(package_dir=package, frame_count=len(package_frames))
@@ -230,7 +233,8 @@ def _fit(image: np.ndarray, max_width: int, max_height: int) -> np.ndarray:
     )
 
 
-def _prompt_text() -> str:
+def _prompt_text(config: dict[str, Any] | None = None) -> str:
+    phase_prompt = _phase_balance_prompt(config)
     return """# OB11 ZBrush Body Cut LLM 剪辑任务
 
 你是一个熟悉 ZBrush、OB11 头壳、小红书缩时视频节奏的剪辑顾问。
@@ -272,6 +276,7 @@ shows_phase_result=true，并填写对应 hair_region 和 process_phase。
 - 重复修改、UI 操作、无结果的旋转缩放、长时间静止优先删除或压缩。
 - importance 使用 0–10，10 表示最重要。
 - 所有 include_in_body_60s=true 且未删除片段的 output_duration_seconds 总和应约为 60 秒。
+{phase_prompt}
 
 ## 动作规则
 
@@ -317,4 +322,33 @@ shows_phase_result、importance 和 reason。
 
 hair_region 只能使用 front_hair、sideburns、back_hair、other_hair_blocks、
 not_hair。process_phase 只能使用 blockout、refinement、other。
-"""
+""".replace("{phase_prompt}", phase_prompt)
+
+
+def _phase_balance_prompt(config: dict[str, Any] | None) -> str:
+    config = config or {}
+    llm_package = _section(config, "llm_package")
+    if not bool(llm_package.get("phase_balance_enabled", False)):
+        return ""
+    blockout = max(0.1, float(llm_package.get("blockout_duration_weight", 1.0)))
+    refinement = max(0.1, float(llm_package.get("refinement_duration_weight", 2.0)))
+    total = blockout + refinement
+    target = _body_60_target_seconds(config)
+    blockout_seconds = target * blockout / total
+    refinement_seconds = target * refinement / total
+    return (
+        "\n### 手动阶段比例要求\n\n"
+        f"- 本次必须按 大型:细化 = {blockout:.2f}:{refinement:.2f} 分配 60 秒主体时长。\n"
+        f"- blockout 阶段总输出时长约 {blockout_seconds:.1f} 秒。\n"
+        f"- refinement 阶段总输出时长约 {refinement_seconds:.1f} 秒。\n"
+        "- 如果必须保留过渡或 other 片段，只保留极短必要时间，并优先从低 importance 内容中扣减。\n"
+        "- 生成 edit_decision.json 时直接按这个比例设置各 segment 的 output_duration_seconds。\n"
+    )
+
+
+def _body_60_target_seconds(config: dict[str, Any]) -> float:
+    versions = _section(config, "cut_versions")
+    body_60 = versions.get("body_60s", {})
+    if not isinstance(body_60, dict):
+        return 60.0
+    return max(1.0, float(body_60.get("target_duration_seconds", 60)))

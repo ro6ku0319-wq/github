@@ -84,7 +84,7 @@ $env:PYTHONPATH="C:\短路径\pyside6-py312"
 如果某个版本没有勾选任何节点，程序会跳过该版本并在日志中说明。标题、BGM、字幕、片尾和最终发布包装仍在 DaVinci Resolve 中完成。
 
 ## 手动 LLM 工作流
-第一版不会自动调用 OpenAI API。完成节点分析后，在 GUI 的“LLM 工作流”页点击“生成 LLM 视觉证据包”，程序会生成：
+第一版不会自动调用 OpenAI API。完成节点分析后，在 GUI 的“LLM 工作流”页先设置“生成 JSON 前约束大型/细化比例”。例如大型 `1`、细化 `2` 会在 60 秒主体里提示 ChatGPT 让大型约 20 秒、细化约 40 秒。然后点击“生成 LLM 视觉证据包”，程序会生成：
 
 ```text
 output/llm_review_package/
@@ -97,7 +97,7 @@ output/llm_review_package/
   frames/
 ```
 
-把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT，让其按照提示词输出严格 JSON 格式的 `edit_decision.json`。新版提示词会要求 ChatGPT 区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按 `importance` 取舍片段。把 JSON 保存到：
+把联系图、帧清单、候选 CSV 和 `llm_prompt.md` 手动上传给 ChatGPT，让其按照提示词输出严格 JSON 格式的 `edit_decision.json`。新版提示词会要求 ChatGPT 区分前发、鬓发、后发和可选的其他发块，并为每个存在区域识别“大型”和“细化”阶段。60 秒方案会优先保证每个存在区域的两类结果都出现，再按你在证据包生成前设置的大型/细化比例和 `importance` 取舍片段。把 JSON 保存到：
 
 ```text
 output/llm_result/edit_decision.json

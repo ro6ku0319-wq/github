@@ -68,7 +68,11 @@ def test_llm_package_builder_creates_manual_review_package(tmp_path: Path) -> No
             "llm_package": {
                 "overview_sample_interval_seconds": 2,
                 "max_contact_sheet_items_per_page": 60,
+                "phase_balance_enabled": True,
+                "blockout_duration_weight": 1.0,
+                "refinement_duration_weight": 2.0,
             },
+            "cut_versions": {"body_60s": {"target_duration_seconds": 60}},
         },
         log=logs.append,
     ).build()
@@ -106,6 +110,9 @@ def test_llm_package_builder_creates_manual_review_package(tmp_path: Path) -> No
         "shows_phase_result",
         "importance",
         "60 秒",
+        "大型:细化 = 1.00:2.00",
+        "blockout 阶段总输出时长约 20.0 秒",
+        "refinement 阶段总输出时长约 40.0 秒",
     ):
         assert expected in prompt
     candidates = list(
